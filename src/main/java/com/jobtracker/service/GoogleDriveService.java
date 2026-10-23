@@ -106,7 +106,7 @@ public class GoogleDriveService {
         resume.setDocumentName(file.name());
         resume.setWebViewLink(resolveDocumentLink(file));
         resume.setLanguage(request.language());
-        resume.setTemplate(isReadOnly ? false : request.template());
+        resume.setTemplate(!isReadOnly && request.template());
         resume.setReadOnly(isReadOnly);
         try {
             GoogleDriveBaseResume saved = baseResumeRepository.save(resume);
@@ -286,13 +286,13 @@ public class GoogleDriveService {
 
     private String buildVacancyFolderName(JobApplication application) {
         String suffix = " - APP-" + application.getId().toString();
-        String rawBase = firstNonBlank(application.getVacancyName(), application.getOrganization(), "Application");
+        String rawBase = applicationDisplayName(application);
         String truncatedBase = truncateFileName(sanitizeFileName(rawBase), 180 - suffix.length());
         return truncatedBase + suffix;
     }
 
     private String buildCopiedDocumentName(JobApplication application, String baseResumeName) {
-        String vacancyName = firstNonBlank(application.getVacancyName(), application.getOrganization(), "Application");
+        String vacancyName = applicationDisplayName(application);
         String prefix = "APP-" + application.getId() + " - " + vacancyName;
         return truncateFileName(sanitizeFileName(prefix + " - " + baseResumeName), 220);
     }
@@ -305,13 +305,14 @@ public class GoogleDriveService {
         return value.length() <= maxLength ? value : value.substring(0, maxLength).trim();
     }
 
-    private String firstNonBlank(String... values) {
-        for (String value : values) {
-            if (StringUtils.hasText(value)) {
-                return value.trim();
-            }
+    private String applicationDisplayName(JobApplication application) {
+        if (StringUtils.hasText(application.getVacancyName())) {
+            return application.getVacancyName().trim();
         }
-        return null;
+        if (StringUtils.hasText(application.getOrganization())) {
+            return application.getOrganization().trim();
+        }
+        return "Application";
     }
 
     private String resolveDocumentLink(GoogleDriveApiClient.DriveFileMetadata file) {

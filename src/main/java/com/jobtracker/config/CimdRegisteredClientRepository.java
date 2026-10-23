@@ -84,7 +84,7 @@ public class CimdRegisteredClientRepository implements RegisteredClientRepositor
 
     @Override
     public RegisteredClient findByClientId(String clientId) {
-        if (clientId != null && clientId.startsWith("https://")) {
+        if (clientId.startsWith("https://")) {
             return resolveCimdClient(clientId);
         }
         return delegate.findByClientId(clientId);

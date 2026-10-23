@@ -42,6 +42,9 @@ public class OAuthAuthorizationServerMetadataController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> authorizationServerMetadata(HttpServletRequest request) {
         String issuer = settings.getIssuer();
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalStateException("OAuth issuer must be configured for discovery metadata");
+        }
 
         Map<String, Object> metadata = new LinkedHashMap<>();
         metadata.put("issuer", issuer);
@@ -73,6 +76,6 @@ public class OAuthAuthorizationServerMetadataController {
 
     private String registrationPath() {
         String path = settings.getOidcClientRegistrationEndpoint();
-        return (path != null && !path.isBlank()) ? path : "/connect/register";
+        return (!path.isBlank()) ? path : "/connect/register";
     }
 }

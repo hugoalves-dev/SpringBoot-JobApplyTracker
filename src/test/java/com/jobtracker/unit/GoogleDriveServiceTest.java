@@ -164,8 +164,17 @@ class GoogleDriveServiceTest {
                 .hasMessageContaining("Only Google Docs documents and PDF files are supported");
     }
 
-    @Test
-    void copyBaseResumeToApplication_shouldCreateFolderAndCopyDocument() {
+    @org.junit.jupiter.params.ParameterizedTest
+    @org.junit.jupiter.params.provider.CsvSource(value = {
+            "Backend Engineer,Acme,Backend Engineer",
+            "NULL,Acme,Acme",
+            "'',Acme,Acme",
+            "NULL,NULL,Application"
+    }, nullValues = "NULL")
+    void copyBaseResumeToApplication_shouldCreateFolderAndCopyDocument(
+            String vacancyName, String organization, String expectedName) {
+        application.setVacancyName(vacancyName);
+        application.setOrganization(organization);
         connection.setRootFolderId("root-folder-id");
         when(securityUtils.getCurrentUserId()).thenReturn(USER_ID);
         when(connectionRepository.findByUserId(USER_ID)).thenReturn(Optional.of(connection));
@@ -210,6 +219,6 @@ class GoogleDriveServiceTest {
         ArgumentCaptor<String> folderNameCaptor = ArgumentCaptor.forClass(String.class);
         verify(googleDriveApiClient).createFolder(eq("access-token"), eq("root-folder-id"), folderNameCaptor.capture());
         verify(applicationRepository).save(application);
-        assertThat(folderNameCaptor.getValue()).contains("APP-" + APPLICATION_ID);
+        assertThat(folderNameCaptor.getValue()).isEqualTo(expectedName + " - APP-" + APPLICATION_ID);
     }
 }

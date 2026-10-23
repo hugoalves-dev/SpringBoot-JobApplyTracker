@@ -77,15 +77,22 @@ public class SdkGoogleDriveApiClient implements GoogleDriveApiClient {
         this.refreshTokenClient = refreshTokenClient;
     }
 
+    private String requiredOAuthSetting(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalStateException("Google OAuth " + name + " must be configured");
+        }
+        return value;
+    }
+
     // ── OAuth2 operations ────────────────────────────────────────────────────
 
     @Override
     public String buildAuthorizationUrl(String state) {
         properties.validateConfigured();
         return UriComponentsBuilder
-                .fromUriString(clientRegistration.getProviderDetails().getAuthorizationUri())
+                .fromUriString(requiredOAuthSetting(clientRegistration.getProviderDetails().getAuthorizationUri(), "authorization URI"))
                 .queryParam("client_id", clientRegistration.getClientId())
-                .queryParam("redirect_uri", clientRegistration.getRedirectUri())
+                .queryParam("redirect_uri", requiredOAuthSetting(clientRegistration.getRedirectUri(), "redirect URI"))
                 .queryParam("response_type", "code")
                 .queryParam("scope", String.join(" ", clientRegistration.getScopes()))
                 .queryParam("access_type", "offline")
@@ -106,13 +113,13 @@ public class SdkGoogleDriveApiClient implements GoogleDriveApiClient {
     public OAuthTokens exchangeAuthorizationCode(String code) {
         OAuth2AuthorizationRequest authRequest = OAuth2AuthorizationRequest.authorizationCode()
                 .clientId(clientRegistration.getClientId())
-                .authorizationUri(clientRegistration.getProviderDetails().getAuthorizationUri())
-                .redirectUri(clientRegistration.getRedirectUri())
+                .authorizationUri(requiredOAuthSetting(clientRegistration.getProviderDetails().getAuthorizationUri(), "authorization URI"))
+                .redirectUri(requiredOAuthSetting(clientRegistration.getRedirectUri(), "redirect URI"))
                 .scopes(clientRegistration.getScopes())
                 .state("_")
                 .build();
         OAuth2AuthorizationResponse authResponse = OAuth2AuthorizationResponse.success(code)
-                .redirectUri(clientRegistration.getRedirectUri())
+                .redirectUri(requiredOAuthSetting(clientRegistration.getRedirectUri(), "redirect URI"))
                 .state("_")
                 .build();
         try {
@@ -223,20 +230,9 @@ public class SdkGoogleDriveApiClient implements GoogleDriveApiClient {
         return executeDocsOp(accessToken, "read document", docs -> {
             com.google.api.services.docs.v1.model.Document document = docs.documents().get(documentId).execute();
 
-            StringBuilder text = new StringBuilder();
             if (document.getBody() == null || document.getBody().getContent() == null) {
                 return "";
             }
-            document.getBody().getContent().forEach(element -> {
-                if (element.getParagraph() == null || element.getParagraph().getElements() == null) {
-                    return;
-                }
-                element.getParagraph().getElements().forEach(paragraphElement -> {
-                    if (paragraphElement.getTextRun() != null && paragraphElement.getTextRun().getContent() != null) {
-                        text.append(paragraphElement.getTextRun().getContent());
-                    }
-                });
-            });
             return extractText(document.getBody().getContent());
         });
     }
@@ -391,7 +387,7 @@ public class SdkGoogleDriveApiClient implements GoogleDriveApiClient {
                 ? LocalDateTime.ofInstant(expiresAt, ZoneOffset.UTC)
                 : LocalDateTime.now(ZoneOffset.UTC).plusHours(1);
         Set<String> scopes = accessToken.getScopes();
-        String scopeStr = (scopes == null || scopes.isEmpty()) ? null : String.join(" ", scopes);
+        String scopeStr = scopes.isEmpty() ? null : String.join(" ", scopes);
         return new OAuthTokens(accessToken.getTokenValue(), refreshTokenValue, expiresAtLdt, scopeStr);
     }
 

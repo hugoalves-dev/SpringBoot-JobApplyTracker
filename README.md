@@ -836,3 +836,32 @@ GitHub Actions workflow (`.github/workflows/ci.yml`) triggers on push/PR to `mai
 ## API Documentation
 
 Swagger UI is available at `http://localhost:8080/swagger-ui.html` when the app is running.
+
+
+### Completed interview counts
+
+`interviewCount` belongs to each application and stores the confirmed number of completed interviews.
+Status changes and `interviewScheduled` do not increment it. Existing totals are preserved; notes and
+legacy status events are not interpreted as proof of attendance. Scheduled, cancelled or missed
+interviews and asynchronous technical tests must not be included.
+
+Set an absolute total through the authenticated API:
+
+```http
+PATCH /api/v1/applications/{id}
+Content-Type: application/json
+
+{"interviewCount": 2}
+```
+
+The MCP `Patch-Application` tool accepts the same optional `interviewCount` parameter. It must be a
+non-negative integer. Omit it to keep the total, or set it to zero to correct it. Repeating the same
+total does not add another interview. Updating this number does not award interview XP; gamification
+remains independent of the business count. A status can be patched together with the total without
+adding an implicit increment.
+
+The React form asks whether an interview was actually completed when saving a change to an interview
+funnel status, including moving between interview stages. Yes adds one to the form total; No saves
+without adding; closing the popup cancels saving. The total can also be corrected manually in the form.
+Dashboard and MCP analytics sum stored completed counts. Analytics `interviewRate` is the percentage
+of applications with at least one completed interview, rather than interviews divided by applications.

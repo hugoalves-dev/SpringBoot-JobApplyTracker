@@ -52,7 +52,8 @@ public class InterviewMetricsService {
             return;
         }
 
-        application.setInterviewCount(application.getInterviewCount() + 1);
+        // Status is funnel history, not evidence that an interview was completed.
+        // The confirmed absolute count is supplied explicitly by the caller.
 
         InterviewEvent event = new InterviewEvent();
         event.setUser(application.getUser());

@@ -69,6 +69,7 @@ import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.UUID;
 
 @Configuration
@@ -264,16 +265,22 @@ public class AuthorizationServerConfig {
                 return;
             }
 
+            var principal = context.getPrincipal();
+            if (principal == null) {
+                throw new IllegalStateException("An access token requires an authenticated principal");
+            }
+
             LinkedHashSet<String> roles = new LinkedHashSet<>();
             roles.add("ROLE_GPT_CLIENT");
-            context.getPrincipal().getAuthorities().stream()
+            principal.getAuthorities().stream()
                     .map(GrantedAuthority::getAuthority)
+                    .filter(Objects::nonNull)
                     .filter(authority -> authority.startsWith("ROLE_"))
                     .filter(authority -> !"ROLE_USER".equals(authority))
                     .forEach(roles::add);
 
             context.getClaims().claim("roles", roles);
-            userRepository.findByEmail(context.getPrincipal().getName())
+            userRepository.findByEmail(principal.getName())
                     .ifPresent(user -> context.getClaims().claim("user_id", user.getId().toString()));
         };
     }

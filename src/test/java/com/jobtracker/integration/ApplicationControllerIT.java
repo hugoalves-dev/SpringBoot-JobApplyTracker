@@ -163,65 +163,76 @@ class ApplicationControllerIT extends AbstractIntegrationTest {
     }
 
     @Test
-    void statusUpdates_shouldExposeCumulativeInterviewCountWithoutRepeatedSaveDoubleCounting() throws Exception {
-        ApplicationRequest create = buildRequest("Interview Counter");
-        MvcResult createResult = mockMvc.perform(post("/api/v1/applications")
+    void createAndReplace_preserveExplicitInterviewTotals() throws Exception {
+        ApplicationRequest request = new ApplicationRequest(
+                "Completed interviews", null, null, null, LocalDate.now().minusDays(1),
+                false, false, null, "Pending HR Response", false, null, null, 2);
+        MvcResult created = mockMvc.perform(post("/api/v1/applications")
                         .header("Authorization", "Bearer " + accessToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(create)))
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.interviewCount").value(2))
                 .andReturn();
+        String id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+        ApplicationRequest replacement = new ApplicationRequest(
+                "Completed interviews", null, null, null, LocalDate.now().minusDays(1),
+                false, false, null, "Pending Hiring Manager Response", false, null, null, 3);
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(put("/api/v1/applications/{id}", id)
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(replacement)))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(3));
+        }
+        mockMvc.perform(put("/api/v1/applications/{id}", id)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(buildRequest("Preserved count"))))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(3));
+    }
 
-        String id = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asText();
+    @Test
+    void confirmedInterviewCount_isAbsoluteAndIndependentOfStatus() throws Exception {
+        MvcResult created = mockMvc.perform(post("/api/v1/applications")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(buildRequest("Interview Counter"))))
+                .andExpect(status().isCreated()).andReturn();
+        String id = objectMapper.readTree(created.getResponse().getContentAsString()).get("id").asText();
+
+        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"Technical Test\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(0));
+
+        // Explicit count and status in the same request must not add an implicit interview.
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(patch("/api/v1/applications/{id}", id)
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"status\":\"Pending HR Response\",\"interviewCount\":2}"))
+                    .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(2));
+        }
+        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":\"Pending Hiring Manager Response\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(2));
 
         mockMvc.perform(get("/api/v1/dashboard/summary")
                         .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interviewCount").value(0));
+                .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(2))
+                .andExpect(jsonPath("$.totalApplications").value(1));
 
-        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
+        mockMvc.perform(patch("/api/v1/applications/{id}", id)
                         .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"Technical Test\"}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/v1/dashboard/summary")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interviewCount").value(1));
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"interviewCount\":-1}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(patch("/api/v1/applications/{id}", id)
                         .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"Technical Test\"}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"Offer Negotiation\"}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/v1/dashboard/summary")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interviewCount").value(1));
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"Rejected\"}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(patch("/api/v1/applications/{id}/status", id)
-                        .header("Authorization", "Bearer " + accessToken)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\": \"Pending HR Response\"}"))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(get("/api/v1/dashboard/summary")
-                        .header("Authorization", "Bearer " + accessToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.interviewCount").value(2));
+                        .contentType(MediaType.APPLICATION_JSON).content("{\"interviewCount\":0}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.interviewCount").value(0));
     }
 
     @Test

@@ -72,10 +72,11 @@ class InterviewMetricsServiceTest {
     }
 
     @Test
-    void recordStatusTransition_shouldIncrementCountAndLogEventWhenEnteringInterviewStatus() {
+    void recordStatusTransition_shouldPreserveConfirmedCountAndLogStatusHistory() {
+        application.setInterviewCount(2);
         service.recordStatusTransition(application, "RH", "Technical Test");
 
-        assertThat(application.getInterviewCount()).isEqualTo(1);
+        assertThat(application.getInterviewCount()).isEqualTo(2);
         verify(eventRepository).save(any());
     }
 

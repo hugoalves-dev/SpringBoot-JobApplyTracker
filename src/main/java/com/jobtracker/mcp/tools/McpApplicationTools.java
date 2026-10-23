@@ -220,6 +220,8 @@ public class McpApplicationTools {
                     + "Prefer this tool over Update-Application: never resend unrelated fields or boolean flags just to satisfy a schema. "
                     + "Set archived to false to restore an archived application to the active list, or to true to archive it. "
                     + "Restoring and archiving preserve the current status, and changing status never archives or restores a record. "
+                    + "Set interviewCount to the absolute number of completed interviews for this application (zero or greater), after user confirmation. "
+                    + "Status changes do not increment this count. Scheduled interviews and asynchronous tests do not count. "
                     + "IMPORTANT: Call List-Statuses first whenever you send status. Never use a status value from memory.",
             annotations = @McpAnnotations(
                     title = "Patch Application",
@@ -243,6 +245,7 @@ public class McpApplicationTools {
             @McpToolParam(required = false, description = "Whether a DM reminder to the recruiter is enabled") Boolean recruiterDmReminderEnabled,
             @McpToolParam(required = false, description = "Personal notes about this application") String note,
             @McpToolParam(required = false, description = "Platform or job board where the vacancy was found, e.g. LinkedIn, Gupy, Indeed, Catho") String platform,
+            @McpToolParam(required = false, description = "Absolute number of completed interviews for this application, integer >= 0. Omit to preserve. Repeating the same total is idempotent; this does not award XP.") Integer interviewCount,
             @McpToolParam(required = false, description = "true to archive the application, false to restore it to the active list. Independent of status.") Boolean archived) {
         ApplicationPatchRequest request = new ApplicationPatchRequest();
         if (vacancyName != null) request.setVacancyName(vacancyName);
@@ -257,6 +260,7 @@ public class McpApplicationTools {
         if (recruiterDmReminderEnabled != null) request.setRecruiterDmReminderEnabled(recruiterDmReminderEnabled);
         if (note != null) request.setNote(note);
         if (platform != null) request.setPlatform(platform);
+        if (interviewCount != null) request.setInterviewCount(interviewCount);
         if (archived != null) request.setArchived(archived);
         return applicationService.patch(UUID.fromString(id), request);
     }

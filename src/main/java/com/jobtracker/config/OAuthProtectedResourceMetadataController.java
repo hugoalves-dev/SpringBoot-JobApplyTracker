@@ -42,6 +42,9 @@ public class OAuthProtectedResourceMetadataController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> protectedResourceMetadata(HttpServletRequest request) {
         String issuer = authorizationServerSettings.getIssuer();
+        if (issuer == null || issuer.isBlank()) {
+            throw new IllegalStateException("OAuth issuer must be configured for discovery metadata");
+        }
         String requestPath = request.getRequestURI();
 
         // Derive the resource path suffix after the well-known prefix.
@@ -80,7 +83,7 @@ public class OAuthProtectedResourceMetadataController {
     // "/connect/register") rather than hardcoded, so it tracks any issuer/path reconfiguration.
     private String registrationEndpoint(String issuer) {
         String path = authorizationServerSettings.getOidcClientRegistrationEndpoint();
-        if (path == null || path.isBlank()) {
+        if (path.isBlank()) {
             path = "/connect/register";
         }
         return issuer + path;

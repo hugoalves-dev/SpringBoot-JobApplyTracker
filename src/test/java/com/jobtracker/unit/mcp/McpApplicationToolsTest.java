@@ -189,17 +189,40 @@ class McpApplicationToolsTest {
         when(applicationService.patch(eq(id), any())).thenReturn(applicationResponseWithId(id));
 
         tools.patchApplication(null, id.toString(), null, null, null, null, null, null, null,
-                null, null, null, null, null, Boolean.FALSE);
+                null, null, null, null, null, null, Boolean.FALSE);
 
         verify(applicationService).patch(eq(id), captor.capture());
         ApplicationPatchRequest request = captor.getValue();
         assertThat(request.hasArchived()).isTrue();
         assertThat(request.getArchived()).isFalse();
+        assertThat(request.hasInterviewCount()).isFalse();
         assertThat(request.hasStatus()).isFalse();
         assertThat(request.hasVacancyName()).isFalse();
         assertThat(request.hasRhAcceptedConnection()).isFalse();
         assertThat(request.hasInterviewScheduled()).isFalse();
         assertThat(request.hasRecruiterDmReminderEnabled()).isFalse();
+    }
+
+    @Test
+    void patchApplication_forwardsExplicitZeroInterviewCount() {
+        UUID id = UUID.randomUUID();
+        ArgumentCaptor<ApplicationPatchRequest> captor = ArgumentCaptor.forClass(ApplicationPatchRequest.class);
+        tools.patchApplication(null, id.toString(), null, null, null, null,
+                null, null, null, null, null, null, null, null, 0, null);
+        verify(applicationService).patch(eq(id), captor.capture());
+        assertThat(captor.getValue().hasInterviewCount()).isTrue();
+        assertThat(captor.getValue().getInterviewCount()).isZero();
+        assertThat(captor.getValue().hasStatus()).isFalse();
+    }
+
+    @Test
+    void patchApplication_rejectsNegativeInterviewCount() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                tools.patchApplication(null, UUID.randomUUID().toString(), null, null, null, null,
+                        null, null, null, null, null, null, null, null, -1, null))
+                .isInstanceOf(com.jobtracker.exception.BadRequestException.class)
+                .hasMessageContaining("interviewCount");
+        org.mockito.Mockito.verifyNoInteractions(applicationService);
     }
 
     @Test
@@ -223,7 +246,7 @@ class McpApplicationToolsTest {
                 Boolean.TRUE,
                 "Follow up Monday",
                 "LinkedIn",
-                Boolean.TRUE);
+                2, Boolean.TRUE);
 
         verify(applicationService).patch(eq(id), captor.capture());
         ApplicationPatchRequest request = captor.getValue();
@@ -240,6 +263,7 @@ class McpApplicationToolsTest {
         assertThat(request.getNote()).isEqualTo("Follow up Monday");
         assertThat(request.getPlatform()).isEqualTo("LinkedIn");
         assertThat(request.getArchived()).isTrue();
+        assertThat(request.getInterviewCount()).isEqualTo(2);
     }
 
     @Test
@@ -249,7 +273,7 @@ class McpApplicationToolsTest {
         when(applicationService.patch(eq(id), any())).thenReturn(expected);
 
         ApplicationResponse result = tools.patchApplication(null, id.toString(), null, null, null, null,
-                null, null, null, null, null, null, null, null, Boolean.FALSE);
+                null, null, null, null, null, null, null, null, null, Boolean.FALSE);
 
         assertThat(result).isEqualTo(expected);
     }

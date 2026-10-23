@@ -69,6 +69,7 @@ class McpAnalyticsToolsTest {
     void getAnalytics_countsCorrectly() {
         JobApplication rh = app("RH", false, LocalDate.now().minusDays(5), null);
         JobApplication interview = app("Pending HR Response", true, LocalDate.now().minusDays(3), "LinkedIn");
+        interview.setInterviewCount(1);
         JobApplication rejected = app("Rejected", false, LocalDate.now().minusDays(10), "Gupy");
         JobApplication ghost = app("Ghosting", false, LocalDate.now().minusDays(20), null);
         JobApplication noStatus = app(null, false, null, null);
@@ -89,6 +90,26 @@ class McpAnalyticsToolsTest {
         assertThat(result.platformBreakdown()).containsEntry("LinkedIn", 1);
         assertThat(result.platformBreakdown()).containsEntry("Gupy", 1);
         assertThat(result.platformBreakdown()).doesNotContainKey(null);
+    }
+
+    @Test
+    void getAnalytics_sumsCompletedInterviewsAndKeepsApplicationRateBounded() {
+        JobApplication first = app("Pending HR Response", false, LocalDate.now(), null);
+        JobApplication second = app("Pending Hiring Manager Response", true, LocalDate.now(), null);
+        JobApplication third = app("RH", false, LocalDate.now(), null);
+        JobApplication scheduledOnly = app("RH", true, LocalDate.now(), null);
+        first.setInterviewCount(2);
+        second.setInterviewCount(2);
+        third.setInterviewCount(1);
+        when(securityUtils.getCurrentUserId()).thenReturn(USER_ID);
+        when(applicationRepository.findAllByUser_IdAndArchivedFalse(USER_ID))
+                .thenReturn(List.of(first, second, third, scheduledOnly));
+
+        AnalyticsResponse result = tools.getAnalytics(null, null, null);
+
+        assertThat(result.totalApplications()).isEqualTo(4);
+        assertThat(result.interviewCount()).isEqualTo(5);
+        assertThat(result.interviewRate()).isEqualTo(75.0);
     }
 
     @Test

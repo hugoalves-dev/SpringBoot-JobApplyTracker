@@ -70,6 +70,11 @@ public class McpApplicationLifecycleRulesResource {
                   Restoration preserves the current status and all other data.
                 - Use `Patch-Application` for any partial change. It updates only the fields you send, so never resend unrelated
                   fields or boolean flags to satisfy a schema.
+                - Interview counts belong to each application. Changing status or scheduling an interview does not increment them.
+                - After confirming attendance with the user, use `Patch-Application` with `interviewCount` set to the absolute
+                  total of completed interviews (integer >= 0). Omit it to preserve the count. Repeating a total is idempotent.
+                - Scheduled, cancelled or missed interviews and asynchronous technical tests are not completed interviews.
+                - Do not infer counts from free-text notes or use gamification events to record interviews.
                 - Permanent deletion is allowed only when the user explicitly requests permanent deletion.
                 - Do not delete and recreate an application to change its archive state without explicit user approval.
 

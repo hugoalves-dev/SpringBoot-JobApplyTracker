@@ -189,6 +189,9 @@ public class ApplicationPatchRequest {
         if (interviewCount == null) {
             return;
         }
+        if (interviewCount < 0) {
+            throw new com.jobtracker.exception.BadRequestException("interviewCount must be zero or greater");
+        }
         this.interviewCount = interviewCount;
         providedFields.add("interviewCount");
     }

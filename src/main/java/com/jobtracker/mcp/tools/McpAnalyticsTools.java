@@ -49,7 +49,8 @@ public class McpAnalyticsTools {
     @McpTool(
             name = "Get-Analytics",
             title = "Get Analytics",
-            description = "Returns aggregate analytics for the user's job applications: totals, rates, status and platform breakdown, average days to response.",
+            description = "Returns aggregate analytics for the user's job applications: totals, rates, status and platform breakdown, average days to response. "
+                    + "interviewCount is the sum of completed interviews; interviewRate is the percentage of applications with at least one completed interview.",
             annotations = @McpAnnotations(
                     title = "Get Analytics",
                     readOnlyHint = true,
@@ -80,13 +81,14 @@ public class McpAnalyticsTools {
         }
 
         int total = apps.size();
-        int interviewCount = (int) apps.stream().filter(JobApplication::isInterviewScheduled).count();
+        int interviewCount = apps.stream().mapToInt(JobApplication::getInterviewCount).sum();
+        long applicationsWithInterviews = apps.stream().filter(a -> a.getInterviewCount() > 0).count();
         int rejectionCount = (int) apps.stream().filter(a ->
                 "REJEITADO".equals(a.getStatus()) || "Rejected".equals(a.getStatus())).count();
         int ghostingCount = (int) apps.stream().filter(a ->
                 "GHOSTING".equals(a.getStatus()) || "Ghosting".equals(a.getStatus())).count();
 
-        double interviewRate = total > 0 ? Math.round(interviewCount * 1000.0 / total) / 10.0 : 0.0;
+        double interviewRate = total > 0 ? Math.round(applicationsWithInterviews * 1000.0 / total) / 10.0 : 0.0;
         double rejectionRate = total > 0 ? Math.round(rejectionCount * 1000.0 / total) / 10.0 : 0.0;
         double ghostingRate = total > 0 ? Math.round(ghostingCount * 1000.0 / total) / 10.0 : 0.0;
 

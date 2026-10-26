@@ -189,6 +189,11 @@ management:
   endpoint:
     health:
       show-details: when_authorized
+      group:
+        uptime:
+          include: "*"
+          additional-path: "server:/health"
+          show-details: never
   tracing:
     sampling:
       probability: ${TRACING_SAMPLING_PROBABILITY:1.0}

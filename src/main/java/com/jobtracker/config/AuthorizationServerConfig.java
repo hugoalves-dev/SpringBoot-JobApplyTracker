@@ -142,16 +142,19 @@ public class AuthorizationServerConfig {
                                         .providerConfigurationCustomizer(metadata -> {
                                             if (mcpOAuthProperties.isDcrEnabled()) {
                                                 metadata.claim("registration_endpoint",
-                                                        issuer + "/connect/register");
+                                                        issuer + authorizationServerSettings.getOidcClientRegistrationEndpoint());
                                             }
                                             metadata.tokenEndpointAuthenticationMethod("none");
                                         }))
                                 .userInfoEndpoint(userInfo -> userInfo
                                         .userInfoMapper(userInfoMapper)))
                         .authorizationServerMetadataEndpoint(metadata ->
-                                metadata.authorizationServerMetadataCustomizer(builder ->
-                                        builder.tokenEndpointAuthenticationMethod(
-                                                ClientAuthenticationMethod.NONE.getValue()))))
+                                metadata.authorizationServerMetadataCustomizer(builder -> {
+                                    builder.tokenEndpointAuthenticationMethod(ClientAuthenticationMethod.NONE.getValue());
+                                    if (mcpOAuthProperties.isDcrEnabled()) {
+                                        builder.claim("registration_endpoint", issuer + authorizationServerSettings.getOidcClientRegistrationEndpoint());
+                                    }
+                                })))
                 .exceptionHandling(exceptions -> exceptions.defaultAuthenticationEntryPointFor(
                         new LoginUrlAuthenticationEntryPoint("/login"),
                         new MediaTypeRequestMatcher(MediaType.TEXT_HTML)))

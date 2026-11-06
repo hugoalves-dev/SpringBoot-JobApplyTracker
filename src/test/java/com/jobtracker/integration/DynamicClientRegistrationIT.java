@@ -40,6 +40,36 @@ class DynamicClientRegistrationIT extends AbstractIntegrationTest {
     }
 
     @Test
+    void oauthDiscovery_shouldAdvertiseRegistrationEndpoint() throws Exception {
+        mockMvc.perform(get("/.well-known/oauth-authorization-server"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.registration_endpoint")
+                        .value("https://jobapply-api.hugojava.dev/connect/register"));
+    }
+
+    @Test
+    void dcrEndpoint_shouldRejectSpoofedLocalhostAndMixedInvalidRedirects() throws Exception {
+        for (String body : new String[]{
+                "{\"redirect_uris\":[\"http://localhost.evil.example/callback\"]}",
+                "{\"redirect_uris\":[\"https://example.com/callback\",\"http://evil.example/callback\"]}"}) {
+            mockMvc.perform(post("/connect/register").contentType(MediaType.APPLICATION_JSON).content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error").value("invalid_redirect_uri"));
+        }
+    }
+
+    @Test
+    void dcrEndpoint_shouldRejectUnsupportedClientAuthentication() throws Exception {
+        mockMvc.perform(post("/connect/register").contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"redirect_uris":["https://example.com/callback"],
+                                 "token_endpoint_auth_method":"client_secret_basic"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_client_metadata"));
+    }
+
+    @Test
     void oidcDiscovery_shouldAdvertiseRegistrationEndpointAndNoneAuthMethod() throws Exception {
         mockMvc.perform(get("/.well-known/openid-configuration"))
                 .andExpect(status().isOk())

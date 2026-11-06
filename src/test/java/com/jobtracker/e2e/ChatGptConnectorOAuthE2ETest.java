@@ -326,6 +326,23 @@ class ChatGptConnectorOAuthE2ETest {
                 .as("initialize with the issued token must not be rejected: %s", mcp.asString())
                 .isEqualTo(200);
 
+        String sessionId = mcp.header("Mcp-Session-Id");
+        assertThat(sessionId).isNotBlank();
+        Response tools = given()
+                .contentType(ContentType.JSON)
+                .accept("application/json, text/event-stream")
+                .header("Authorization", "Bearer " + accessToken)
+                .header("Mcp-Session-Id", sessionId)
+                .body("""
+                        {"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}
+                        """)
+                .post("/mcp");
+        assertThat(tools.statusCode()).isEqualTo(200);
+        String toolsJson = tools.asString().lines().filter(line -> line.startsWith("data:"))
+                .findFirst().map(line -> line.substring(5).trim()).orElse(tools.asString());
+        assertThat(new io.restassured.path.json.JsonPath(toolsJson)
+                .getList("result.tools.name", String.class)).contains("List-Applications");
+
         // --- Step 7: refresh exchange, exactly how a public MCP client renews after the
         // 15-minute access token expires: client_id only, no secret, no PKCE params.
         String refreshToken = token.jsonPath().getString("refresh_token");

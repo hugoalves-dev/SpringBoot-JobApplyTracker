@@ -78,6 +78,13 @@ class DcrDisabledIT {
     }
 
     @Test
+    void rootAuthorizationServerMetadata_omitsRegistrationEndpoint() throws Exception {
+        mockMvc.perform(get("/.well-known/oauth-authorization-server"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.registration_endpoint").doesNotExist());
+    }
+
+    @Test
     void oidcDiscovery_omitsRegistrationEndpoint() throws Exception {
         mockMvc.perform(get("/.well-known/openid-configuration"))
                 .andExpect(status().isOk())

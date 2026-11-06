@@ -1,6 +1,7 @@
 package com.jobtracker.service.assistant;
 
 import com.google.genai.errors.ApiException;
+import com.openai.errors.RateLimitException;
 import com.jobtracker.dto.assistant.AssistantErrorPayload;
 import org.springframework.stereotype.Component;
 
@@ -24,11 +25,28 @@ public class AssistantProviderErrorMapper {
             );
         }
 
+        if (hasOpenRouterRateLimit(error)) {
+            return new AssistantErrorPayload(
+                    "RATE_LIMITED",
+                    "OpenRouter rate limit exceeded",
+                    null
+            );
+        }
+
         return new AssistantErrorPayload(
                 "PROVIDER_UNAVAILABLE",
                 "Assistant provider is unavailable",
                 null
         );
+    }
+
+    private boolean hasOpenRouterRateLimit(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof RateLimitException) return true;
+            current = current.getCause();
+        }
+        return false;
     }
 
     private boolean isRateLimited(ApiException error) {

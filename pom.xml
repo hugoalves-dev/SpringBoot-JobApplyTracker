@@ -198,10 +198,16 @@
             <version>${webauthn-server.version}</version>
         </dependency>
 
-        <!-- Spring AI Google GenAI chat model for Ask ApplyWell (disabled by default) -->
+        <!-- Ask ApplyWell: Google AI Studio / Gemini -->
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-starter-model-google-genai</artifactId>
+        </dependency>
+
+        <!-- Ask ApplyWell: OpenRouter via the OpenAI-compatible Chat Completions API -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
         <!-- Spring AI MCP Server (Streamable HTTP) -->

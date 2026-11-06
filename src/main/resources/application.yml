@@ -6,6 +6,14 @@ spring:
   ai:
     model:
       chat: ${APP_ASSISTANT_PROVIDER:none}
+      # Ask ApplyWell does not use embeddings; avoid OpenAI embedding auto-configuration.
+      embedding: none
+    openai:
+      # The OpenAI Spring AI adapter targets OpenRouter, not api.openai.com.
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      api-key: ${OPENROUTER_API_KEY:}
+      chat:
+        model: ${OPENROUTER_CHAT_MODEL:openai/gpt-4o-mini}
     google:
       genai:
         api-key: ${GEMINI_API_KEY:}

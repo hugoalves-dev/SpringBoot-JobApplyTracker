@@ -1,10 +1,12 @@
 package com.jobtracker.unit;
 
 import com.google.genai.errors.ApiException;
+import com.openai.errors.RateLimitException;
 import com.jobtracker.service.assistant.AssistantProviderErrorMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 class AssistantProviderErrorMapperTest {
     private final AssistantProviderErrorMapper mapper = new AssistantProviderErrorMapper();
@@ -37,6 +39,20 @@ class AssistantProviderErrorMapperTest {
         var payload = mapper.map(error);
 
         assertThat(payload.code()).isEqualTo("RATE_LIMITED");
+        assertThat(payload.retryAfterSeconds()).isNull();
+    }
+
+    @Test
+    void mapsOpenRouterRateLimitWithoutInventingRetryDelay() {
+        RuntimeException error = new RuntimeException(
+                "OpenRouter request failed",
+                mock(RateLimitException.class)
+        );
+
+        var payload = mapper.map(error);
+
+        assertThat(payload.code()).isEqualTo("RATE_LIMITED");
+        assertThat(payload.message()).isEqualTo("OpenRouter rate limit exceeded");
         assertThat(payload.retryAfterSeconds()).isNull();
     }
 

@@ -15,8 +15,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -81,9 +79,9 @@ public class DynamicClientRegistrationController {
                             "redirect_uris is required and must be a non-empty array"));
         }
 
-        if (rawList.stream().anyMatch(value -> !(value instanceof String uri) || !isValidRedirectUri(uri))) {
+        if (rawList.stream().anyMatch(value -> !(value instanceof String uri) || !DcrRedirectUriPolicy.isValidForRegistration(uri))) {
             return ResponseEntity.badRequest()
-                    .body(error("invalid_redirect_uri", "All redirect URIs must be valid HTTPS URLs or HTTP localhost URLs"));
+                    .body(error("invalid_redirect_uri", "Redirect URIs must use HTTPS or HTTP loopback (localhost, 127.0.0.1, [::1])"));
         }
         List<String> redirectUris = rawList.stream().map(String.class::cast).distinct().toList();
 
@@ -145,19 +143,6 @@ public class DynamicClientRegistrationController {
         response.put("code_challenge_methods_supported", List.of("S256"));
 
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
-    }
-
-    private boolean isValidRedirectUri(String value) {
-        if (value.length() > 500) return false;
-        try {
-            URI uri = new URI(value);
-            if (!uri.isAbsolute() || uri.isOpaque() || uri.getHost() == null
-                    || uri.getUserInfo() != null || uri.getFragment() != null) return false;
-            return "https".equalsIgnoreCase(uri.getScheme())
-                    || ("http".equalsIgnoreCase(uri.getScheme()) && "localhost".equalsIgnoreCase(uri.getHost()));
-        } catch (URISyntaxException ex) {
-            return false;
-        }
     }
 
     // authorization_code is always granted; refresh_token is granted when requested.

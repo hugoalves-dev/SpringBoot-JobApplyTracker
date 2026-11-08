@@ -5,10 +5,22 @@ import tools.jackson.databind.ObjectMapper;
 import com.jobtracker.config.DynamicClientRegistrationController;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpHeaders;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -33,6 +45,7 @@ class DynamicClientRegistrationIT extends AbstractIntegrationTest {
     @Autowired private MockMvc mockMvc;
     @Autowired private ObjectMapper objectMapper;
     @Autowired private DynamicClientRegistrationController dcrController;
+    @Autowired private RegisteredClientRepository registeredClientRepository;
 
     @BeforeEach
     void resetRateLimit() {
@@ -245,4 +258,111 @@ class DynamicClientRegistrationIT extends AbstractIntegrationTest {
         assertThat(scope).contains("openid");
         assertThat(scope).contains("read:profile");
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "https://client.example.com/callback",
+            "http://localhost:8080/callback",
+            "http://127.0.0.1:49152/callback",
+            "http://[::1]:49153/callback"
+    })
+    void dcrEndpoint_shouldAcceptHttpsAndHttpLoopbackRedirects(String redirectUri) throws Exception {
+        MvcResult result = mockMvc.perform(post("/connect/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("redirect_uris", List.of(redirectUri)))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.redirect_uris[0]").value(redirectUri))
+                .andReturn();
+
+        String clientId = objectMapper.readTree(result.getResponse().getContentAsString())
+                .get("client_id").asText();
+        RegisteredClient client = registeredClientRepository.findByClientId(clientId);
+        assertThat(client).isNotNull();
+        assertThat(client.getRedirectUris()).containsExactly(redirectUri);
+        assertThat(client.getClientSettings().isRequireProofKey()).isTrue();
+        assertThat(client.getClientAuthenticationMethods()).containsExactly(ClientAuthenticationMethod.NONE);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://external.example.com/callback",
+            "http://localhost.evil.example.com/callback",
+            "http://127.0.0.2:8080/callback",
+            "http://127.0.0.1.evil.example.com/callback",
+            "http://[::2]:8080/callback",
+            "http://user@localhost:8080/callback",
+            "http://127.0.0.1:8080/callback#fragment",
+            "http://[::1%25eth0]:8080/callback",
+            "http://localhost:65536/callback",
+            "javascript:alert(1)",
+            "/relative/callback"
+    })
+    void dcrEndpoint_shouldRejectUnsafeRedirectUris(String redirectUri) throws Exception {
+        mockMvc.perform(post("/connect/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("redirect_uris", List.of(redirectUri)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error").value("invalid_redirect_uri"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "http://localhost:3000/callback, http://localhost:49152/callback",
+            "http://127.0.0.1:3000/callback, http://127.0.0.1:49152/callback",
+            "http://[::1]:3000/callback, http://[::1]:49152/callback"
+    })
+    void dcrAuthorization_shouldAcceptEphemeralLoopbackPort(String registeredUri, String requestedUri)
+            throws Exception {
+        String clientId = registerClientWithRedirect(registeredUri);
+        MvcResult result = authorize(clientId, requestedUri)
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+
+        String location = result.getResponse().getHeader(HttpHeaders.LOCATION);
+        assertThat(location).startsWith(requestedUri + "?").contains("code=");
+        assertThat(location).contains("state=loopback-state");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://localhost:49152/other",
+            "http://localhost.evil.example.com:49152/callback?source=one",
+            "http://127.0.0.1:49152/callback?source=one",
+            "http://localhost:49152/callback?source=two",
+            "https://localhost:49152/callback?source=one"
+    })
+    void dcrAuthorization_shouldRejectChangesBeyondLoopbackPort(String requestedUri) throws Exception {
+        String clientId = registerClientWithRedirect("http://localhost:3000/callback?source=one");
+        authorize(clientId, requestedUri).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void dcrAuthorization_shouldNotAllowDynamicPortForHttpsRedirect() throws Exception {
+        String clientId = registerClientWithRedirect("https://client.example.com/callback");
+        authorize(clientId, "https://client.example.com:49152/callback")
+                .andExpect(status().isBadRequest());
+    }
+
+    private String registerClientWithRedirect(String redirectUri) throws Exception {
+        MvcResult result = mockMvc.perform(post("/connect/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of("redirect_uris", List.of(redirectUri)))))
+                .andExpect(status().isCreated())
+                .andReturn();
+        return objectMapper.readTree(result.getResponse().getContentAsString()).get("client_id").asText();
+    }
+
+    private org.springframework.test.web.servlet.ResultActions authorize(String clientId, String redirectUri)
+            throws Exception {
+        return mockMvc.perform(get("/oauth2/authorize")
+                .with(user("loopback-user@example.com").roles("USER"))
+                .queryParam("response_type", "code")
+                .queryParam("client_id", clientId)
+                .queryParam("redirect_uri", redirectUri)
+                .queryParam("scope", "read:profile")
+                .queryParam("state", "loopback-state")
+                .queryParam("code_challenge", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
+                .queryParam("code_challenge_method", "S256"));
+    }
+
 }

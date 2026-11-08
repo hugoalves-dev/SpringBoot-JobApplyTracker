@@ -32,6 +32,9 @@ import org.springframework.security.oauth2.server.authorization.JdbcOAuth2Author
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationContext;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationProvider;
+import org.springframework.security.oauth2.server.authorization.authentication.OAuth2AuthorizationCodeRequestAuthenticationValidator;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -71,6 +74,7 @@ import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 @Configuration
 @EnableConfigurationProperties({GptOAuthProperties.class, McpOAuthProperties.class})
@@ -124,6 +128,15 @@ public class AuthorizationServerConfig {
                         .requestMatchers("/login", "/default-ui.css").permitAll()
                         .anyRequest().authenticated())
                 .with(authorizationServerConfigurer, authorizationServer -> authorizationServer
+                        .authorizationEndpoint(endpoint -> endpoint.authenticationProviders(providers ->
+                                providers.forEach(provider -> {
+                                    if (provider instanceof OAuth2AuthorizationCodeRequestAuthenticationProvider codeProvider) {
+                                        Consumer<OAuth2AuthorizationCodeRequestAuthenticationContext> validator =
+                                                DcrRedirectUriPolicy::validateAuthorizationRedirectUri;
+                                        codeProvider.setAuthenticationValidator(validator.andThen(
+                                                OAuth2AuthorizationCodeRequestAuthenticationValidator.DEFAULT_SCOPE_VALIDATOR));
+                                    }
+                                })))
                         // Public clients (Claude/ChatGPT MCP connectors) must be able to
                         // refresh tokens with just their client_id: SAS's built-in public
                         // client support only covers the PKCE authorization_code request.

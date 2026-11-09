@@ -1,0 +1,1 @@
+-- MariaDB compatibility transition; PostgreSQL stores authorization payloads as TEXT.

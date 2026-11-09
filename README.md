@@ -2,7 +2,7 @@
 
 [Frontend - React-JobApplyTracker](https://github.com/vitorhugo-java/React-JobApplyTracker) 
 
-A production-ready Spring Boot REST API for tracking job applications, built with Java 21, Spring Security JWT authentication, MariaDB, and comprehensive test coverage. Exposes all domain services via a **Model Context Protocol (MCP) server** so AI assistants (Claude Desktop, Claude.ai, and any MCP-compatible client) can manage applications on behalf of authenticated users.
+A production-ready Spring Boot REST API for tracking job applications, built with Java 21, Spring Security JWT authentication, PostgreSQL, and comprehensive test coverage. Exposes all domain services via a **Model Context Protocol (MCP) server** so AI assistants (Claude Desktop, Claude.ai, and any MCP-compatible client) can manage applications on behalf of authenticated users.
 
 > **Alterações no MCP podem exigir atualização manual dos clientes.**
 > 
@@ -27,7 +27,7 @@ A production-ready Spring Boot REST API for tracking job applications, built wit
 - **Spring Security** with stateless JWT authentication + role-based authorization (`USER`, `BETA`, `ADMIN`)
 - **JWT + Refresh Tokens** (access: 15 min, refresh: 7 days with rotation)
 - **Resilience4j Rate Limiting** on auth endpoints
-- **MariaDB** (production) / **Testcontainers** (tests)
+- **PostgreSQL** (production and local development) / **H2** (unit tests)
 - **Flyway** for DB migrations
 - **JUnit 5 + Mockito** (unit tests)
 - **Testcontainers + MockMvc** (integration tests)
@@ -331,10 +331,10 @@ By default this compose file pulls image: `ghcr.io/vitorhugo-java/springboot-job
 
 The API will be available at `http://localhost:8080`.
 
-### With Maven (requires a running MariaDB)
+### With Maven (requires a running PostgreSQL)
 
 ```bash
-export DB_URL=jdbc:mariadb://localhost:3306/jobtracker?createDatabaseIfNotExist=true
+export DB_URL=jdbc:postgresql://localhost:5432/jobtracker
 export DB_USERNAME=jobtracker
 export DB_PASSWORD=jobtracker
 export JWT_SECRET=your-secret-key-at-least-256-bits-long
@@ -726,7 +726,7 @@ mvn test -Dtest="com.jobtracker.integration.*"
 mvn test -Dtest="com.jobtracker.e2e.*"
 ```
 
-> **Note:** Integration and E2E tests require Docker to be running (Testcontainers pulls a MariaDB image automatically).
+> **Note:** Integration and E2E tests require Docker to be running.
 
 ## Seed Fake Data
 
@@ -764,7 +764,7 @@ If `APP_SEED_ENABLED=true` and `APP_SEED_USER_EMAIL` is not provided (or the use
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_URL` | `jdbc:mariadb://localhost:3306/jobtracker` | JDBC URL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/jobtracker` | JDBC URL |
 | `DB_USERNAME` | `jobtracker` | DB username |
 | `DB_PASSWORD` | `jobtracker` | DB password |
 | `JWT_SECRET` | *(dev default)* | JWT signing secret (min 256 bits) |
@@ -865,3 +865,18 @@ funnel status, including moving between interview stages. Yes adds one to the fo
 without adding; closing the popup cancels saving. The total can also be corrected manually in the form.
 Dashboard and MCP analytics sum stored completed counts. Analytics `interviewRate` is the percentage
 of applications with at least one completed interview, rather than interviews divided by applications.
+
+## PostgreSQL migration and rollback
+
+The backend now uses PostgreSQL only. A fresh database is created by the PostgreSQL Flyway location (`db/migration/postgresql`) and validated by Hibernate. The original MariaDB migrations remain unchanged; the PostgreSQL location carries their compatible schema history and adds PostgreSQL full-text search in V36. MariaDB and PostgreSQL UUID representation differ: PostgreSQL uses native `uuid` columns.
+
+For an existing production database, perform the cutover in an isolated environment first. Do not point the application at the source MariaDB database during this process.
+
+1. Take a MariaDB logical backup and prove that it restores to a separate MariaDB instance. Record row counts for every table and preserve the backup outside the migration host.
+2. Create an empty PostgreSQL database and import a restored copy of MariaDB with `pgloader`. Use a reviewed pgloader cast rule for `BINARY(16)` to native UUID (`binary-to-uuid`), `TINYINT(1)` to boolean, and MariaDB temporal types to PostgreSQL timestamps. Exclude `flyway_schema_history` from the import; the PostgreSQL Flyway history is initialized separately. Keep the MariaDB instance untouched.
+3. Compare table/row counts, UUID samples, foreign-key integrity, null/default behavior, OAuth authorization payloads, and timestamp samples between source and target. Reconcile identity sequences with each table's maximum imported ID.
+4. In the imported target only, initialize Flyway's PostgreSQL history at version 35 (`flyway baseline -baselineVersion=35`), then start the application with the PostgreSQL `DB_URL`. Flyway applies V36 and Hibernate validates the schema. Run authenticated REST, OAuth, MCP, assistant search, export, and scheduled-job smoke checks.
+5. Repeat the import and checks from a clean backup as a dry run. Schedule a maintenance window, stop writes to MariaDB, take a final backup, import the final delta/full snapshot, reconcile counts and sequences, then switch `DB_URL` to PostgreSQL.
+6. Keep MariaDB and its backups intact through the agreed observation period. If any validation fails, stop the PostgreSQL application and restore the previous MariaDB `DB_URL`; do not reverse-import partial PostgreSQL writes into MariaDB. Reconcile any writes made during the observation period before reopening the old database.
+
+The repository does not contain production credentials or data, so the dry run and live cutover must be performed by the operator against isolated/production infrastructure. Keep the old instance available until the new target has been explicitly accepted.

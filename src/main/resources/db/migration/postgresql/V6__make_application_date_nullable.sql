@@ -1,0 +1,1 @@
+-- application_date was nullable from the initial PostgreSQL schema.

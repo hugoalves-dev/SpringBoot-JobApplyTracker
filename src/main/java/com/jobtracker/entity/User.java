@@ -32,7 +32,7 @@ public class User {
     @Column(name = "reminder_time", nullable = false)
     private LocalTime reminderTime;
 
-    @Column(name = "privacy_policy_accepted", nullable = false, columnDefinition = "TINYINT(1) DEFAULT 0")
+    @Column(name = "privacy_policy_accepted", nullable = false)
     private boolean privacyPolicyAccepted;
 
     @Column(name = "privacy_policy_accepted_at")

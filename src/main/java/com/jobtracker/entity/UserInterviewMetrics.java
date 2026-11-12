@@ -19,7 +19,7 @@ import java.util.UUID;
 public class UserInterviewMetrics {
 
     @Id
-    @Column(name = "user_id", columnDefinition = "BINARY(16)", nullable = false)
+    @Column(name = "user_id", nullable = false)
     private UUID userId;
 
     @OneToOne(fetch = FetchType.LAZY)

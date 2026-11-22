@@ -2,6 +2,7 @@ package com.jobtracker.controller;
 
 import com.jobtracker.config.AssistantProperties;
 import com.jobtracker.dto.assistant.AssistantChatRequest;
+import com.jobtracker.dto.assistant.AssistantUsageResponse;
 import com.jobtracker.service.assistant.AssistantProviderErrorMapper;
 import com.jobtracker.service.assistant.AssistantService;
 import com.jobtracker.service.assistant.AssistantService.AssistantStream;
@@ -54,6 +55,12 @@ public class AssistantController {
                     emitter.complete();
                 }));
         return emitter;
+    }
+
+    @PreAuthorize("hasRole('USER') or hasAuthority('SCOPE_read:applications')")
+    @GetMapping(value = "/usage", produces = MediaType.APPLICATION_JSON_VALUE)
+    public AssistantUsageResponse usage() {
+        return assistant.usage();
     }
 
     private void send(SseEmitter emitter, String event, Object data) {

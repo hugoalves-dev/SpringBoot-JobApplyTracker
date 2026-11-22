@@ -4,6 +4,7 @@ import io.github.resilience4j.ratelimiter.RequestNotPermitted;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.access.AccessDeniedException;
@@ -55,6 +56,25 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleServiceUnavailable(ServiceUnavailableException ex) {
         log.warn("event=SERVICE_UNAVAILABLE message={}", ex.getMessage());
         return buildResponse(HttpStatus.SERVICE_UNAVAILABLE, ex.getMessage(), codeOf(ex));
+    }
+
+    // Content type is preset so the JSON body is written even when the client sent Accept: text/event-stream.
+    @ExceptionHandler(AssistantQuotaExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleAssistantQuota(AssistantQuotaExceededException ex) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", HttpStatus.TOO_MANY_REQUESTS.value());
+        body.put("error", HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase());
+        body.put("message", ex.getMessage());
+        body.put("code", ex.getCode());
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .contentType(MediaType.APPLICATION_JSON);
+        if (ex.getRetryAfterSeconds() != null) {
+            body.put("retryAfterSeconds", ex.getRetryAfterSeconds());
+            response.header(HttpHeaders.RETRY_AFTER, String.valueOf(ex.getRetryAfterSeconds()));
+        }
+        if (ex.getRetryAt() != null) body.put("retryAt", ex.getRetryAt().toString());
+        return response.body(body);
     }
 
     @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})

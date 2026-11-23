@@ -66,7 +66,7 @@ class SemanticSearchPostgresIT {
         String password = System.getProperty("semantic.it.password", "");
         if (url == null) {
             container = new PostgreSQLContainer<>(
-                    DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"));
+                    DockerImageName.parse("pgvector/pgvector:0.8.7-pg18").asCompatibleSubstituteFor("postgres"));
             container.start();
             url = container.getJdbcUrl();
             user = container.getUsername();

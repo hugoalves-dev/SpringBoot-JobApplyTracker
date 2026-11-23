@@ -7,7 +7,7 @@ import org.testcontainers.utility.DockerImageName;
 /** Shared PostgreSQL instance so cached Spring contexts keep a live datasource between test classes. */
 public final class PostgresTestDatabase {
     private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
-            DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"));
+            DockerImageName.parse("pgvector/pgvector:0.8.7-pg18").asCompatibleSubstituteFor("postgres"));
 
     static {
         POSTGRES.start();

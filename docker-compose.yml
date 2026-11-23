@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg17
+    # Same major as production (postgres:18) plus pgvector.
+    image: pgvector/pgvector:0.8.7-pg18
     environment:
       POSTGRES_DB: ${DB_NAME:-jobtracker}
       POSTGRES_USER: ${DB_USERNAME:-jobtracker}
@@ -8,7 +9,8 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker; the volume mounts the parent.
+      - postgres18_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-jobtracker} -d ${DB_NAME:-jobtracker}"]
       interval: 5s
@@ -55,4 +57,4 @@ services:
       start_period: 60s
 
 volumes:
-  postgres_data:
+  postgres18_data:

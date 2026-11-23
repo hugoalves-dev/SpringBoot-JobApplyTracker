@@ -303,6 +303,14 @@ Development (build locally):
 docker-compose up -d
 ```
 
+> **Upgrading from the PostgreSQL 17 dev setup:** the local database now runs PostgreSQL 18 with pgvector
+> (`pgvector/pgvector:0.8.7-pg18`, same major as production). A major version can't open the old data
+> directory, so compose uses a new volume, `postgres18_data`, and starts with an empty database (Flyway
+> recreates the schema). The old `postgres_data` volume is left untouched. To keep its data, dump it with
+> PostgreSQL 17 before switching (`docker compose exec postgres pg_dump -U jobtracker jobtracker > dump.sql`
+> on the old setup), then restore it into the new container with `psql`. Once you no longer need it,
+> remove it with `docker volume rm <project>_postgres_data`.
+
 Production (use pre-built image from GitHub Container Registry):
 
 1. Log in to GHCR (requires a Personal Access Token with `read:packages`):

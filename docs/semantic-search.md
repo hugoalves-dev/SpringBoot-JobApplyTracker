@@ -7,10 +7,16 @@ working unchanged when it is off or when the embeddings provider is down.
 
 ## Enabling it
 
-1. The database server needs the [pgvector](https://github.com/pgvector/pgvector) extension.
-   `docker-compose.yml` uses `pgvector/pgvector:pg17`; a production server on the stock `postgres`
-   image must switch to it (or install `postgresql-17-pgvector`) **before** deploying, because Flyway
-   `V38` runs `CREATE EXTENSION IF NOT EXISTS vector` and the app will not start without it. If the
+1. The database server needs the [pgvector](https://github.com/pgvector/pgvector) extension installed.
+   Flyway `V38` runs `CREATE EXTENSION IF NOT EXISTS vector`, which only registers an extension whose
+   binaries are already on the server; with the stock `postgres` image it fails and the app will not start.
+   Production runs `postgres:18`: switch it to `pgvector/pgvector:0.8.7-pg18-<debian>` **before** deploying,
+   matching the Debian release of the current image (`cat /etc/os-release` in the container) so glibc
+   collations, and therefore text indexes, don't change. It is built from the official `postgres:18`
+   image, so the existing volume is reused as is. Back up first. Do not `apt-get install` the package
+   inside a running container: it disappears when the container is recreated while the database still
+   references the extension. The CI deploy only manages the `app` service, so this step is manual.
+   `docker-compose.yml`, the load test and Testcontainers use `pgvector/pgvector:0.8.7-pg18`. If the
    application's DB user is not a superuser (the Docker image's `POSTGRES_USER` is), have a superuser run
    `CREATE EXTENSION vector;` in the database first.
 2. Set `APP_SEMANTIC_SEARCH_ENABLED=true` and `OPENROUTER_API_KEY` (the same key the OpenRouter chat

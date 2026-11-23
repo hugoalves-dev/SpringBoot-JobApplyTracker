@@ -60,5 +60,20 @@ class MigratorTests(unittest.TestCase):
                             {"a"}, {"a": [m.Column("id", "uuid")]})
 
 
+    def test_postgres_only_tables_are_not_compared_or_copied(self):
+        rows = [("users", "id", "uuid", "NEVER"),
+                ("semantic_embeddings", "id", "uuid", "NEVER"),
+                ("semantic_embeddings", "embedding", "vector", "NEVER")]
+        original = m.query_rows
+        m.query_rows = lambda conn, query, *args: rows
+        try:
+            tables, columns = m.target_schema(object())
+        finally:
+            m.query_rows = original
+        self.assertEqual(tables, {"users"})
+        self.assertNotIn("semantic_embeddings", columns)
+        m.ensure_schema({"users"}, {"users": {"id"}}, tables, columns)
+
+
 if __name__ == "__main__":
     unittest.main()

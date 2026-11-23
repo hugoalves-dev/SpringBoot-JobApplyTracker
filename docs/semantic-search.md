@@ -10,7 +10,7 @@ working unchanged when it is off or when the embeddings provider is down.
 1. The database server needs the [pgvector](https://github.com/pgvector/pgvector) extension.
    `docker-compose.yml` uses `pgvector/pgvector:pg17`; a production server on the stock `postgres`
    image must switch to it (or install `postgresql-17-pgvector`) **before** deploying, because Flyway
-   `V37` runs `CREATE EXTENSION IF NOT EXISTS vector` and the app will not start without it. If the
+   `V38` runs `CREATE EXTENSION IF NOT EXISTS vector` and the app will not start without it. If the
    application's DB user is not a superuser (the Docker image's `POSTGRES_USER` is), have a superuser run
    `CREATE EXTENSION vector;` in the database first.
 2. Set `APP_SEMANTIC_SEARCH_ENABLED=true` and `OPENROUTER_API_KEY` (the same key the OpenRouter chat
@@ -33,7 +33,7 @@ working unchanged when it is off or when the embeddings provider is down.
 
 ## How it works
 
-- **Storage** (`semantic_embeddings`, Flyway `V37`): one row per application or profile document, with
+- **Storage** (`semantic_embeddings`, Flyway `V38`): one row per application or profile document, with
   real foreign keys (`ON DELETE CASCADE`), `user_id`, the exact embedded text, its SHA-256, model,
   dimensions, status (`PENDING`, `READY`, `FAILED`, `EMPTY`, `SOURCE_ERROR`), attempts and timestamps.
   Accessed through JDBC only; Hibernate never sees the `vector` type.

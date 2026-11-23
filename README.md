@@ -868,12 +868,12 @@ of applications with at least one completed interview, rather than interviews di
 
 ## PostgreSQL migration and rollback
 
-The PostgreSQL backend uses native UUID columns, PostgreSQL Flyway migrations V1-V37 and a generated full-text index. **Flyway migrates the schema, not the existing MariaDB records.** For a one-time data cutover, use [scripts/migrate_mariadb_to_postgresql.py](scripts/migrate_mariadb_to_postgresql.py). It uses PyMySQL + psycopg 3 (streaming PostgreSQL COPY), without pgloader.
+The PostgreSQL backend uses native UUID columns, PostgreSQL Flyway migrations V1-V38 and a generated full-text index. **Flyway migrates the schema, not the existing MariaDB records.** For a one-time data cutover, use [scripts/migrate_mariadb_to_postgresql.py](scripts/migrate_mariadb_to_postgresql.py). It uses PyMySQL + psycopg 3 (streaming PostgreSQL COPY), without pgloader.
 
 ### Prerequisites
 
 1. Verify the MariaDB backup can be restored, and restore it into an **isolated, read-only MariaDB source**. The Python tool connects to a running MariaDB instance; it does **not** parse a .sql/.gz dump directly.
-2. Provision a **new, dedicated, empty PostgreSQL database**. Start the new backend **once** with this database to let Flyway apply V1-V37, then **stop it**. Disable app seeding/scheduled jobs while preparing the target. Only the Flyway seeds (nine `application_statuses` rows and the `assistant-global` row in `assistant_quota_locks`) are allowed before import.
+2. Provision a **new, dedicated, empty PostgreSQL database**. Start the new backend **once** with this database to let Flyway apply V1-V38, then **stop it**. Disable app seeding/scheduled jobs while preparing the target. Only the Flyway seeds (nine `application_statuses` rows and the `assistant-global` row in `assistant_quota_locks`) are allowed before import.
 3. Keep the application stopped so nothing writes to PostgreSQL during the copy. Confirm the MariaDB backup and database version represent the latest application data. Maintain the old MariaDB backup and old backend image for rollback.
 4. Use least-privilege credentials: read-only MariaDB user and a PostgreSQL user allowed to COPY/DELETE and reset the identity sequence. Do not commit credentials to the repository.
 
@@ -911,7 +911,7 @@ The tool validates exact source/target table and writable-column sets, refuses u
 
 ### Cutover / rollback
 
-1. For the final cutover, stop writes to the old MariaDB and restore a **final** consistent backup into the isolated MariaDB source. Recreate an empty PostgreSQL target and allow Flyway V1-V37 to initialize it before running the Python migrator.
+1. For the final cutover, stop writes to the old MariaDB and restore a **final** consistent backup into the isolated MariaDB source. Recreate an empty PostgreSQL target and allow Flyway V1-V38 to initialize it before running the Python migrator.
 2. Confirm counts, UUID samples, referential integrity, login, Google Drive, OAuth, MCP, assistant search and export using the new backend and migrated data.
 3. Switch traffic to the PostgreSQL-backed new backend only after validation; do not run both backends writing in parallel.
 4. For rollback, **stop the new backend, restore the old MariaDB-compatible backend image and its DB_URL**, and reconcile any writes accepted after cutover. Repointing the new PostgreSQL-only application at MariaDB is not supported. Keep MariaDB and the backups until acceptance.

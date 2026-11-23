@@ -143,7 +143,7 @@ app:
     base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
     api-key: ${OPENROUTER_API_KEY:}
     model: ${APP_SEMANTIC_SEARCH_MODEL:qwen/qwen3-embedding-8b}
-    # Must equal the vector(N) column (V37). A different value disables semantic search until migrated.
+    # Must equal the vector(N) column (V38). A different value disables semantic search until migrated.
     dimensions: ${APP_SEMANTIC_SEARCH_DIMENSIONS:1024}
     truncate-to-dimensions: ${APP_SEMANTIC_SEARCH_TRUNCATE_TO_DIMENSIONS:true}
     request-timeout: ${APP_SEMANTIC_SEARCH_REQUEST_TIMEOUT:10s}

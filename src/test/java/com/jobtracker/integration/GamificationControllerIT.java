@@ -56,6 +56,12 @@ class GamificationControllerIT extends AbstractIntegrationTest {
     @Autowired
     private GoogleDriveBaseResumeRepository googleDriveBaseResumeRepository;
 
+    @Autowired
+    private WebAuthnChallengeRepository webAuthnChallengeRepository;
+
+    @Autowired
+    private WebAuthnCredentialRepository webAuthnCredentialRepository;
+
     @BeforeEach
     void cleanDb() {
         userAchievementRepository.deleteAll();
@@ -67,6 +73,8 @@ class GamificationControllerIT extends AbstractIntegrationTest {
         userInterviewMetricsRepository.deleteAll();
         googleDriveBaseResumeRepository.deleteAll();
         googleDriveConnectionRepository.deleteAll();
+        webAuthnChallengeRepository.deleteAll();
+        webAuthnCredentialRepository.deleteAll();
         userRepository.deleteAll();
     }
 

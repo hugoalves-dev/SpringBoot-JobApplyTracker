@@ -1,6 +1,7 @@
 """Pure tests for the one-time data migration (no database required)."""
 
 import importlib.util
+import re
 import unittest
 from pathlib import Path
 from uuid import UUID
@@ -68,6 +69,27 @@ class MigratorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.ensure_schema({"a"}, {"a": {"id", "secret"}},
                             {"a"}, {"a": [m.Column("id", "uuid")]})
+
+
+    def test_postgres_only_tables_are_not_compared_or_copied(self):
+        rows = [("users", "id", "uuid", "NEVER"),
+                ("semantic_embeddings", "id", "uuid", "NEVER"),
+                ("semantic_embeddings", "embedding", "vector", "NEVER")]
+        original = m.query_rows
+        m.query_rows = lambda conn, query, *args: rows
+        try:
+            tables, columns = m.target_schema(object())
+        finally:
+            m.query_rows = original
+        self.assertEqual(tables, {"users"})
+        self.assertNotIn("semantic_embeddings", columns)
+        m.ensure_schema({"users"}, {"users": {"id"}}, tables, columns)
+
+
+    def test_target_version_matches_latest_postgresql_migration(self):
+        migrations = Path(__file__).resolve().parents[1] / "src/main/resources/db/migration/postgresql"
+        versions = [int(re.match(r"V(\d+)__", f.name).group(1)) for f in migrations.glob("V*__*.sql")]
+        self.assertEqual(m.TARGET_FLYWAY_VERSION, str(max(versions)))
 
 
 if __name__ == "__main__":

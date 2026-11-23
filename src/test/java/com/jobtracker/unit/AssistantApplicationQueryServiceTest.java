@@ -20,7 +20,11 @@ class AssistantApplicationQueryServiceTest {
     private final AssistantApplicationQueryRepository queries = mock(AssistantApplicationQueryRepository.class);
     private final ApplicationRepository applications = mock(ApplicationRepository.class);
     private final AssistantApplicationQueryService service = new AssistantApplicationQueryService(
-            queries, applications, new AssistantProperties());
+            queries, applications, new AssistantProperties(),
+                mock(com.jobtracker.service.semantic.SemanticSearchService.class),
+                new com.jobtracker.config.SemanticSearchProperties(),
+                mock(com.jobtracker.repository.semantic.SemanticEmbeddingRepository.class),
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
 
     @ParameterizedTest
     @NullAndEmptySource

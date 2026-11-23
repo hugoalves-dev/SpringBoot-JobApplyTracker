@@ -62,3 +62,6 @@ Thumbs.db
 .aiox/install-log.txt
 
 .aiox-core
+
+__pycache__/
+*.pyc

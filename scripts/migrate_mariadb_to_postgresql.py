@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-time ApplyWell MariaDB -> PostgreSQL data cutover.
 
-The PostgreSQL schema must already have been created by Flyway V1-V37.
+The PostgreSQL schema must already have been created by Flyway V1-V38.
 The MariaDB source should be restored from a verified backup and kept immutable.
 """
 
@@ -22,6 +22,9 @@ from uuid import UUID
 # without a running MariaDB or PostgreSQL instance.
 
 EXCLUDED = {"flyway_schema_history"}
+# PostgreSQL-only derived data (pgvector embeddings, V38). Not copied or compared; it must be empty
+# in the target and is rebuilt by the application's background backfill after the cutover.
+POSTGRES_ONLY = {"semantic_embeddings"}
 SEED_STATUSES = (
     (1, "RH", 1),
     (2, "Pending HR Response", 2),
@@ -36,7 +39,7 @@ SEED_STATUSES = (
 # Flyway-seeded rows that are replaced by the source data during import.
 SEED_QUOTA_LOCKS = (("assistant-global",),)
 SEED_ROLE_NAMES = {"USER", "BETA", "ADMIN"}
-TARGET_FLYWAY_VERSION = "37"
+TARGET_FLYWAY_VERSION = "38"
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 
@@ -179,6 +182,8 @@ def target_schema(conn: object) -> tuple[set[str], dict[str, list[Column]]]:
         columns.setdefault(table, [])
         if generated != "ALWAYS":
             columns[table].append(Column(name, pg_type))
+    for table in POSTGRES_ONLY:
+        columns.pop(table, None)
     return set(columns) - EXCLUDED, columns
 
 
@@ -232,6 +237,13 @@ def inspect_target(conn: object, tables: set[str], sql: object) -> None:
             if tuple(actual) != SEED_QUOTA_LOCKS:
                 raise ValueError("Target assistant_quota_locks differs from Flyway V37 seed; refusing overwrite")
         elif count:
+            raise ValueError(f"Target {table} already contains {count} records; refusing to overwrite")
+    for table in sorted(POSTGRES_ONLY):
+        count_query = sql.SQL("SELECT COUNT(*) FROM public.{}").format(sql.Identifier(table))
+        with conn.cursor() as cursor:
+            cursor.execute(count_query)
+            count = cursor.fetchone()[0]
+        if count:
             raise ValueError(f"Target {table} already contains {count} records; refusing to overwrite")
 
 

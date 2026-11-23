@@ -4,6 +4,7 @@ import com.jobtracker.dto.assistant.AssistantApplicationView;
 import com.jobtracker.dto.dashboard.DashboardSummaryResponse;
 import com.jobtracker.repository.assistant.AssistantApplicationQueryRepository.ApplicationStats;
 import com.jobtracker.service.DashboardService;
+import com.jobtracker.service.assistant.AssistantApplicationQueryService.ProfileMatchResult;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 
@@ -35,11 +36,24 @@ public class AssistantTools {
         this.maxToolCalls = maxToolCalls;
     }
 
-    @Tool(description = "Search the authenticated user's applications using ranked text search and optional structured filters. Never accepts a user ID.")
+    @Tool(description = "Search the authenticated user's applications using hybrid keyword + semantic retrieval "
+            + "and optional structured filters. Each result's matchedBy says whether it matched the exact words "
+            + "(KEYWORD), only related meaning (SEMANTIC), or both. Never accepts a user ID.")
     public List<AssistantApplicationView> searchApplications(SearchInput input) {
         consumeToolCall();
         sources.add("APPLICATION_SEARCH");
         return queries.search(userId, input.query(), input.organization(), input.status(), input.platform(),
+                input.applicationDateFrom(), input.applicationDateTo(), input.archived(), input.limit());
+    }
+
+    @Tool(description = "Rank the authenticated user's applications by similarity to their own profile/resume "
+            + "documents and explicitly check must-have requirements (stack, seniority, location, work modality, "
+            + "salary wording) against each vacancy's stored text. Returns ranks and evidence, never fit scores.")
+    public ProfileMatchResult matchApplicationsToProfile(MatchInput input) {
+        consumeToolCall();
+        sources.add("PROFILE_MATCH");
+        return queries.matchProfile(userId, input.profileDocumentId(), input.requiredTerms(),
+                input.onlyFullyMatching(), input.organization(), input.status(), input.platform(),
                 input.applicationDateFrom(), input.applicationDateTo(), input.archived(), input.limit());
     }
 
@@ -86,6 +100,17 @@ public class AssistantTools {
 
     public record SearchInput(
             @ToolParam(description = "Optional free-text search query.", required = false) String query,
+            @ToolParam(description = "Optional exact organization filter.", required = false) String organization,
+            @ToolParam(description = "Optional application status filter.", required = false) String status,
+            @ToolParam(description = "Optional application platform filter.", required = false) String platform,
+            @ToolParam(description = "Optional inclusive application date lower bound.", required = false) LocalDate applicationDateFrom,
+            @ToolParam(description = "Optional inclusive application date upper bound.", required = false) LocalDate applicationDateTo,
+            boolean archived,
+            @ToolParam(description = "Optional result limit.", required = false) Integer limit) {}
+    public record MatchInput(
+            @ToolParam(description = "Optional profile document ID; omit to use all of the user's indexed profile documents.", required = false) UUID profileDocumentId,
+            @ToolParam(description = "Optional must-have terms checked literally in the vacancy text, e.g. [\"Java\", \"Senior\", \"Remote\"].", required = false) List<String> requiredTerms,
+            @ToolParam(description = "When true, drop applications missing any required term.", required = false) boolean onlyFullyMatching,
             @ToolParam(description = "Optional exact organization filter.", required = false) String organization,
             @ToolParam(description = "Optional application status filter.", required = false) String status,
             @ToolParam(description = "Optional application platform filter.", required = false) String platform,

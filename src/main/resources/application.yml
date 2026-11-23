@@ -6,7 +6,7 @@ spring:
   ai:
     model:
       chat: ${APP_ASSISTANT_PROVIDER:none}
-      # Ask ApplyWell does not use embeddings; avoid OpenAI embedding auto-configuration.
+      # Spring AI's embedding auto-configuration stays off; semantic search calls OpenRouter's embeddings API directly.
       embedding: none
     openai:
       # The OpenAI Spring AI adapter targets OpenRouter, not api.openai.com.
@@ -136,6 +136,30 @@ app:
       global-rate-limit: ${APP_ASSISTANT_QUOTA_GLOBAL_RATE_LIMIT:20}
       global-rate-window: ${APP_ASSISTANT_QUOTA_GLOBAL_RATE_WINDOW:1m}
       retention: ${APP_ASSISTANT_QUOTA_RETENTION:7d}
+  # Hybrid FTS + pgvector retrieval. Off by default; FTS keeps working unchanged when disabled or when
+  # the embeddings provider is unavailable. Requires the pgvector extension on the database server.
+  semantic-search:
+    enabled: ${APP_SEMANTIC_SEARCH_ENABLED:false}
+    base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+    api-key: ${OPENROUTER_API_KEY:}
+    model: ${APP_SEMANTIC_SEARCH_MODEL:qwen/qwen3-embedding-8b}
+    # Must equal the vector(N) column (V38). A different value disables semantic search until migrated.
+    dimensions: ${APP_SEMANTIC_SEARCH_DIMENSIONS:1024}
+    truncate-to-dimensions: ${APP_SEMANTIC_SEARCH_TRUNCATE_TO_DIMENSIONS:true}
+    request-timeout: ${APP_SEMANTIC_SEARCH_REQUEST_TIMEOUT:10s}
+    batch-size: ${APP_SEMANTIC_SEARCH_BATCH_SIZE:16}
+    # Cost guard: max documents embedded per scheduler run.
+    max-embeddings-per-run: ${APP_SEMANTIC_SEARCH_MAX_EMBEDDINGS_PER_RUN:64}
+    max-input-chars: ${APP_SEMANTIC_SEARCH_MAX_INPUT_CHARS:8000}
+    max-query-chars: ${APP_SEMANTIC_SEARCH_MAX_QUERY_CHARS:500}
+    max-attempts: ${APP_SEMANTIC_SEARCH_MAX_ATTEMPTS:5}
+    retry-base-delay: ${APP_SEMANTIC_SEARCH_RETRY_BASE_DELAY:1m}
+    scheduler-interval-ms: ${APP_SEMANTIC_SEARCH_SCHEDULER_INTERVAL_MS:60000}
+    profile-refresh-interval: ${APP_SEMANTIC_SEARCH_PROFILE_REFRESH_INTERVAL:24h}
+    candidate-limit: ${APP_SEMANTIC_SEARCH_CANDIDATE_LIMIT:50}
+    rrf-k: ${APP_SEMANTIC_SEARCH_RRF_K:60}
+    max-cosine-distance: ${APP_SEMANTIC_SEARCH_MAX_COSINE_DISTANCE:0.65}
+    provider-cooldown: ${APP_SEMANTIC_SEARCH_PROVIDER_COOLDOWN:60s}
   api:
     base-url: ${APP_API_BASE_URL:https://jobapply-api.hugojava.dev}
   frontend:

@@ -52,6 +52,16 @@ class MigratorTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             m.dependency_order({"a", "b"}, [("a", "b"), ("b", "a")])
 
+    def test_mariadb_time_timedelta_becomes_time_of_day(self):
+        from datetime import time, timedelta
+        value = m.convert(timedelta(hours=19, minutes=30, seconds=5, microseconds=12), "time")
+        self.assertEqual(value, time(19, 30, 5, 12))
+        self.assertEqual(m.canonical(value), ["temporal", "19:30:05.000012"])
+        with self.assertRaises(ValueError):
+            m.convert(timedelta(hours=25), "time")
+        with self.assertRaises(ValueError):
+            m.convert(timedelta(seconds=-1), "time")
+
     def test_schema_mismatch_fails_closed(self):
         with self.assertRaises(ValueError):
             m.ensure_schema({"a"}, {"a": {"id"}}, {"b"}, {"b": [m.Column("id", "uuid")]})

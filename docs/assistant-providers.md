@@ -35,6 +35,9 @@ To disable the assistant, set `APP_ASSISTANT_ENABLED=false` and
 `APP_ASSISTANT_PROVIDER=none`. API keys are server-side secrets: do not
 commit real values or expose them to the frontend.
 
+Quotas, rate limits, output-token and tool-call caps apply to every provider the
+same way. See [assistant-quota.md](assistant-quota.md).
+
 There is no automatic provider fallback: selecting a provider switches
 the backend on restart. OpenRouter's own provider routing and retry
 behavior are separate from this selection.

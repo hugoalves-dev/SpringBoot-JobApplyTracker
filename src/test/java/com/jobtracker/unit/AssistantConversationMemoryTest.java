@@ -4,6 +4,8 @@ import com.jobtracker.config.AssistantProperties;
 import com.jobtracker.dto.assistant.AssistantChatRequest;
 import com.jobtracker.service.DashboardService;
 import com.jobtracker.service.assistant.AssistantApplicationQueryService;
+import com.jobtracker.service.assistant.AssistantProviderErrorMapper;
+import com.jobtracker.service.assistant.AssistantQuotaService;
 import com.jobtracker.service.assistant.AssistantService;
 import com.jobtracker.service.assistant.AssistantService.AssistantStream;
 import com.jobtracker.util.SecurityUtils;
@@ -162,7 +164,8 @@ class AssistantConversationMemoryTest {
                 mock(DashboardService.class),
                 security,
                 properties,
-                new SimpleMeterRegistry());
+                new SimpleMeterRegistry(),
+                untrackedQuota(), new AssistantProviderErrorMapper());
     }
 
     private void consume(AssistantStream stream) {
@@ -173,5 +176,11 @@ class AssistantConversationMemoryTest {
         return prompt.getInstructions().stream()
                 .map(Message::getText)
                 .toList();
+    }
+
+    private static AssistantQuotaService untrackedQuota() {
+        AssistantQuotaService quota = mock(AssistantQuotaService.class);
+        when(quota.reserve(any())).thenReturn(AssistantQuotaService.Reservation.untracked());
+        return quota;
     }
 }

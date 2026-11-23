@@ -12,7 +12,10 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 class AssistantToolsTest {
@@ -32,5 +35,21 @@ class AssistantToolsTest {
         verify(repository).search(userId, null, "CWI", null, null,
                 null, null, false, 10, false);
         assertThat(tools.sources()).contains("APPLICATION_SEARCH");
+    }
+
+    @Test
+    void toolCallBudgetStopsRunawayToolLoops() {
+        DashboardService dashboard = mock(DashboardService.class);
+        AssistantTools tools = new AssistantTools(UUID.randomUUID(), mock(AssistantApplicationQueryService.class),
+                dashboard, 2);
+
+        tools.getDashboardSummary();
+        tools.getDashboardSummary();
+
+        assertThatThrownBy(tools::getDashboardSummary)
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Tool call budget exhausted");
+        verify(dashboard, times(2)).getSummary(any());
+        assertThat(tools.toolCalls()).isEqualTo(3);
     }
 }

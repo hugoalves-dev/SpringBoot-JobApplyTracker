@@ -8,3 +8,5 @@ INSERT INTO application_statuses (name, display_order) VALUES
 ('Ghosting', 7),
 ('Rejected', 8),
 ('Approved', 9);
+
+INSERT INTO assistant_quota_locks (lock_name) VALUES ('assistant-global');

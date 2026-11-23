@@ -120,6 +120,22 @@ app:
     default-search-results: ${APP_ASSISTANT_DEFAULT_SEARCH_RESULTS:10}
     max-search-results: ${APP_ASSISTANT_MAX_SEARCH_RESULTS:20}
     stream-timeout: ${APP_ASSISTANT_STREAM_TIMEOUT:60s}
+    # Applied to every provider through Spring AI's portable ChatOptions; 0 keeps the provider default.
+    max-output-tokens: ${APP_ASSISTANT_MAX_OUTPUT_TOKENS:1024}
+    # Each tool call is an extra provider round-trip; 0 means unlimited.
+    max-tool-calls: ${APP_ASSISTANT_MAX_TOOL_CALLS:8}
+    # Enforced before any ChatModel call, regardless of provider. A limit of 0 disables that check.
+    quota:
+      enabled: ${APP_ASSISTANT_QUOTA_ENABLED:true}
+      daily-limit: ${APP_ASSISTANT_QUOTA_DAILY_LIMIT:30}
+      reset-zone: ${APP_ASSISTANT_QUOTA_RESET_ZONE:America/Sao_Paulo}
+      rate-limit: ${APP_ASSISTANT_QUOTA_RATE_LIMIT:5}
+      rate-window: ${APP_ASSISTANT_QUOTA_RATE_WINDOW:1m}
+      max-concurrent: ${APP_ASSISTANT_QUOTA_MAX_CONCURRENT:1}
+      global-daily-limit: ${APP_ASSISTANT_QUOTA_GLOBAL_DAILY_LIMIT:500}
+      global-rate-limit: ${APP_ASSISTANT_QUOTA_GLOBAL_RATE_LIMIT:20}
+      global-rate-window: ${APP_ASSISTANT_QUOTA_GLOBAL_RATE_WINDOW:1m}
+      retention: ${APP_ASSISTANT_QUOTA_RETENTION:7d}
   api:
     base-url: ${APP_API_BASE_URL:https://jobapply-api.hugojava.dev}
   frontend:

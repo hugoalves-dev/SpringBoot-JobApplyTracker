@@ -17,10 +17,10 @@ public class AssistantRequestReservation {
 
     @Id
     @UuidGenerator(style = UuidGenerator.Style.TIME)
-    @Column(name = "id", columnDefinition = "BINARY(16)", updatable = false, nullable = false)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    @Column(name = "user_id", columnDefinition = "BINARY(16)", nullable = false, updatable = false)
+    @Column(name = "user_id", nullable = false, updatable = false)
     private UUID userId;
 
     @Enumerated(EnumType.STRING)

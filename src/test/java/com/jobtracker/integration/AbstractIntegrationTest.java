@@ -3,17 +3,16 @@ package com.jobtracker.integration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import com.jobtracker.support.PostgresTestDatabase;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.MOCK,
         properties = {
-                "spring.datasource.url=jdbc:h2:mem:jobtracker_test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
-                "spring.datasource.driver-class-name=org.h2.Driver",
-                "spring.datasource.username=sa",
-                "spring.datasource.password=",
                 "spring.jpa.hibernate.ddl-auto=create-drop",
                 "spring.jpa.show-sql=false",
-                "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+                "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect",
                 "spring.flyway.enabled=false",
                 "spring.sql.init.mode=always"
         }
@@ -21,4 +20,8 @@ import org.springframework.test.context.ActiveProfiles;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class AbstractIntegrationTest {
+    @DynamicPropertySource
+    static void configureDatabase(DynamicPropertyRegistry registry) {
+        PostgresTestDatabase.registerProperties(registry);
+    }
 }

@@ -1,0 +1,29 @@
+name: MariaDB to PostgreSQL migrator tests
+
+on:
+  pull_request:
+    paths:
+      - "scripts/migrate_mariadb_to_postgresql.py"
+      - "scripts/requirements-migrate-postgresql.txt"
+      - "tests/test_migrate_mariadb_to_postgresql.py"
+      - ".github/workflows/data-migration-tests.yml"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/migrate_mariadb_to_postgresql.py"
+      - "tests/test_migrate_mariadb_to_postgresql.py"
+      - ".github/workflows/data-migration-tests.yml"
+  workflow_dispatch:
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Compile and run isolated unit tests
+        run: |
+          python -m compileall -q scripts/migrate_mariadb_to_postgresql.py
+          python -m unittest discover -s tests -p 'test_migrate_mariadb_to_postgresql.py' -v

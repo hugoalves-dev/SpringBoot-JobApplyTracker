@@ -2,7 +2,7 @@
 
 [Frontend - React-JobApplyTracker](https://github.com/vitorhugo-java/React-JobApplyTracker) 
 
-A production-ready Spring Boot REST API for tracking job applications, built with Java 21, Spring Security JWT authentication, MariaDB, and comprehensive test coverage. Exposes all domain services via a **Model Context Protocol (MCP) server** so AI assistants (Claude Desktop, Claude.ai, and any MCP-compatible client) can manage applications on behalf of authenticated users.
+A production-ready Spring Boot REST API for tracking job applications, built with Java 21, Spring Security JWT authentication, PostgreSQL, and comprehensive test coverage. Exposes all domain services via a **Model Context Protocol (MCP) server** so AI assistants (Claude Desktop, Claude.ai, and any MCP-compatible client) can manage applications on behalf of authenticated users.
 
 > **Alterações no MCP podem exigir atualização manual dos clientes.**
 > 
@@ -27,7 +27,7 @@ A production-ready Spring Boot REST API for tracking job applications, built wit
 - **Spring Security** with stateless JWT authentication + role-based authorization (`USER`, `BETA`, `ADMIN`)
 - **JWT + Refresh Tokens** (access: 15 min, refresh: 7 days with rotation)
 - **Resilience4j Rate Limiting** on auth endpoints
-- **MariaDB** (production) / **Testcontainers** (tests)
+- **PostgreSQL** (production and local development) / **H2** (unit tests)
 - **Flyway** for DB migrations
 - **JUnit 5 + Mockito** (unit tests)
 - **Testcontainers + MockMvc** (integration tests)
@@ -331,10 +331,10 @@ By default this compose file pulls image: `ghcr.io/vitorhugo-java/springboot-job
 
 The API will be available at `http://localhost:8080`.
 
-### With Maven (requires a running MariaDB)
+### With Maven (requires a running PostgreSQL)
 
 ```bash
-export DB_URL=jdbc:mariadb://localhost:3306/jobtracker?createDatabaseIfNotExist=true
+export DB_URL=jdbc:postgresql://localhost:5432/jobtracker
 export DB_USERNAME=jobtracker
 export DB_PASSWORD=jobtracker
 export JWT_SECRET=your-secret-key-at-least-256-bits-long
@@ -726,7 +726,7 @@ mvn test -Dtest="com.jobtracker.integration.*"
 mvn test -Dtest="com.jobtracker.e2e.*"
 ```
 
-> **Note:** Integration and E2E tests require Docker to be running (Testcontainers pulls a MariaDB image automatically).
+> **Note:** Integration and E2E tests require Docker to be running.
 
 ## Seed Fake Data
 
@@ -764,7 +764,7 @@ If `APP_SEED_ENABLED=true` and `APP_SEED_USER_EMAIL` is not provided (or the use
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_URL` | `jdbc:mariadb://localhost:3306/jobtracker` | JDBC URL |
+| `DB_URL` | `jdbc:postgresql://localhost:5432/jobtracker` | JDBC URL |
 | `DB_USERNAME` | `jobtracker` | DB username |
 | `DB_PASSWORD` | `jobtracker` | DB password |
 | `JWT_SECRET` | *(dev default)* | JWT signing secret (min 256 bits) |
@@ -865,3 +865,54 @@ funnel status, including moving between interview stages. Yes adds one to the fo
 without adding; closing the popup cancels saving. The total can also be corrected manually in the form.
 Dashboard and MCP analytics sum stored completed counts. Analytics `interviewRate` is the percentage
 of applications with at least one completed interview, rather than interviews divided by applications.
+
+## PostgreSQL migration and rollback
+
+The PostgreSQL backend uses native UUID columns, PostgreSQL Flyway migrations V1-V36 and a generated full-text index. **Flyway migrates the schema, not the existing MariaDB records.** For a one-time data cutover, use [scripts/migrate_mariadb_to_postgresql.py](scripts/migrate_mariadb_to_postgresql.py). It uses PyMySQL + psycopg 3 (streaming PostgreSQL COPY), without pgloader.
+
+### Prerequisites
+
+1. Verify the MariaDB backup can be restored, and restore it into an **isolated, read-only MariaDB source**. The Python tool connects to a running MariaDB instance; it does **not** parse a .sql/.gz dump directly.
+2. Provision a **new, dedicated, empty PostgreSQL database**. Start the new backend **once** with this database to let Flyway apply V1-V36, then **stop it**. Disable app seeding/scheduled jobs while preparing the target. Only the nine Flyway-seeded `application_statuses` rows are allowed before import.
+3. Keep the application stopped so nothing writes to PostgreSQL during the copy. Confirm the MariaDB backup and database version represent the latest application data. Maintain the old MariaDB backup and old backend image for rollback.
+4. Use least-privilege credentials: read-only MariaDB user and a PostgreSQL user allowed to COPY/DELETE and reset the identity sequence. Do not commit credentials to the repository.
+
+### Install and run
+
+From repository root on a host that can reach **both** database instances:
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r scripts/requirements-migrate-postgresql.txt
+
+export MIGRATE_MYSQL_HOST=127.0.0.1
+export MIGRATE_MYSQL_PORT=3306
+export MIGRATE_MYSQL_DATABASE=jobtracker
+export MIGRATE_MYSQL_USER=jobtracker
+read -rsp 'MariaDB backup password: ' MIGRATE_MYSQL_PASSWORD; echo; export MIGRATE_MYSQL_PASSWORD
+
+export MIGRATE_PG_HOST=127.0.0.1
+export MIGRATE_PG_PORT=5432
+export MIGRATE_PG_DATABASE=jobtracker
+export MIGRATE_PG_USER=jobtracker
+read -rsp 'PostgreSQL password: ' MIGRATE_PG_PASSWORD; echo; export MIGRATE_PG_PASSWORD
+
+# Default: validate schema, Flyway history and destination emptiness; no writes.
+python scripts/migrate_mariadb_to_postgresql.py
+
+# Only after preflight succeeds and backup restore is verified:
+python scripts/migrate_mariadb_to_postgresql.py --execute
+```
+
+The tool validates exact source/target table and writable-column sets, refuses unexpected destination records, excludes Flyway history and generated search vectors, copies data in FK dependency order, converts MariaDB BINARY(16) UUIDs to native UUIDs and TINYINT(1) booleans, and compares order-independent SHA-256 content fingerprints for all copied columns in every table. It restores PostgreSQL identity sequences after verification, then commits. Errors roll back data modifications; **sequence changes are not transactional**, so the empty destination should be discarded and rebuilt after a failed attempt. It will not overwrite an existing populated ApplyWell PostgreSQL database.
+
+**Important:** This is a one-time cutover tool. Its unit tests cover pure conversion and validation logic, but **it has not been tested against your production backup**. Test the entire procedure on isolated instances before production.
+
+### Cutover / rollback
+
+1. For the final cutover, stop writes to the old MariaDB and restore a **final** consistent backup into the isolated MariaDB source. Recreate an empty PostgreSQL target and allow Flyway V1-V36 to initialize it before running the Python migrator.
+2. Confirm counts, UUID samples, referential integrity, login, Google Drive, OAuth, MCP, assistant search and export using the new backend and migrated data.
+3. Switch traffic to the PostgreSQL-backed new backend only after validation; do not run both backends writing in parallel.
+4. For rollback, **stop the new backend, restore the old MariaDB-compatible backend image and its DB_URL**, and reconcile any writes accepted after cutover. Repointing the new PostgreSQL-only application at MariaDB is not supported. Keep MariaDB and the backups until acceptance.
+

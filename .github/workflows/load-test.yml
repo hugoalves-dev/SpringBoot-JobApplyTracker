@@ -21,28 +21,27 @@ jobs:
       - name: Build API image
         run: docker build -t job-tracker:loadtest .
 
-      - name: Start MariaDB (test)
+      - name: Start PostgreSQL (test)
         run: |
           docker run -d \
             --name loadtest-db \
             --network loadtest-net \
-            -e MARIADB_ROOT_PASSWORD=root \
-            -e MARIADB_DATABASE=jobtracker \
-            -e MARIADB_USER=jobtracker \
-            -e MARIADB_PASSWORD=jobtracker \
-            mariadb:11
+            -e POSTGRES_DB=jobtracker \
+            -e POSTGRES_USER=jobtracker \
+            -e POSTGRES_PASSWORD=jobtracker \
+            postgres:17
 
-      - name: Wait for MariaDB
+      - name: Wait for PostgreSQL
         run: |
           for i in {1..30}; do
-            if docker exec loadtest-db mariadb-admin ping -h 127.0.0.1 -uroot -proot --silent; then
-              echo "MariaDB is ready"
+            if docker exec loadtest-db pg_isready -h 127.0.0.1 -U jobtracker -d jobtracker; then
+              echo "PostgreSQL is ready"
               exit 0
             fi
-            echo "Waiting for MariaDB... ($i/30)"
+            echo "Waiting for PostgreSQL... ($i/30)"
             sleep 2
           done
-          echo "MariaDB did not become ready in time"
+          echo "PostgreSQL did not become ready in time"
           exit 1
 
       - name: Start API with server-like limits (1 CPU / 4GB)
@@ -55,7 +54,7 @@ jobs:
             --memory-swap=4g \
             -p 8080:8080 \
             -p 8081:8081 \
-            -e DB_URL="jdbc:mariadb://loadtest-db:3306/jobtracker?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useUnicode=true" \
+            -e DB_URL="jdbc:postgresql://loadtest-db:5432/jobtracker" \
             -e DB_USERNAME="jobtracker" \
             -e DB_PASSWORD="jobtracker" \
             -e JWT_SECRET="LoadTestSecretKeyThatIsAtLeast256BitsLongAndOnlyForGithubActions" \

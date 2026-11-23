@@ -1,0 +1,2 @@
+-- V35 is retained to match the final version of the historical MariaDB schema.
+-- PostgreSQL full-text structures are added in V36 after schema/data import.

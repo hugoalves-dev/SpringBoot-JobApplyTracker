@@ -18,7 +18,7 @@ public class JobApplication {
 
     @Id
     @UuidGenerator(style = UuidGenerator.Style.TIME)
-    @Column(name = "id", columnDefinition = "BINARY(16)", updatable = false, nullable = false)
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
     @Column(name = "vacancy_name", length = 255)
@@ -105,7 +105,7 @@ public class JobApplication {
     @Column(name = "drive_resume_generated_at")
     private LocalDateTime driveResumeGeneratedAt;
 
-    @Column(name = "drive_resume_template_id", columnDefinition = "BINARY(16)")
+    @Column(name = "drive_resume_template_id")
     private UUID driveResumeTemplateId;
 
     @Column(name = "drive_resume_pdf_file_id", length = 255)

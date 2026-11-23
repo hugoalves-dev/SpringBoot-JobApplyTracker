@@ -5,7 +5,6 @@ import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
-import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -17,7 +16,8 @@ public class AssistantApplicationQueryRepository {
                    platform, interview_count, next_step_date_time,
                    LEFT(note, 500) AS note_excerpt, archived
             """;
-    private static final String MATCH = "MATCH(vacancy_name, organization, recruiter_name, note) AGAINST (:query IN NATURAL LANGUAGE MODE)";
+    private static final String MATCH = "assistant_search_vector @@ websearch_to_tsquery('simple', :query)";
+    private static final String RANK = "ts_rank(assistant_search_vector, websearch_to_tsquery('simple', :query))";
 
     private final NamedParameterJdbcTemplate jdbc;
 
@@ -34,7 +34,7 @@ public class AssistantApplicationQueryRepository {
         if (!hasQuery || shortTokenFallback) {
             sql.append(", NULL AS relevance FROM job_applications WHERE user_id = :userId ");
         } else {
-            sql.append(", ").append(MATCH).append(" AS relevance FROM job_applications WHERE user_id = :userId AND ")
+            sql.append(", ").append(RANK).append(" AS relevance FROM job_applications WHERE user_id = :userId AND ")
                     .append(MATCH).append(" ");
         }
         MapSqlParameterSource p = baseParameters(userId, organization, status, platform, from, to, archived)
@@ -43,14 +43,14 @@ public class AssistantApplicationQueryRepository {
                 .addValue("limit", limit);
         appendFilters(sql, organization, status, platform, from, to);
         if (hasQuery && shortTokenFallback) {
-            sql.append(" AND (vacancy_name LIKE :likeQuery ESCAPE '\\\\' OR organization LIKE :likeQuery ESCAPE '\\\\' ")
-                    .append("OR recruiter_name LIKE :likeQuery ESCAPE '\\\\' OR note LIKE :likeQuery ESCAPE '\\\\') ");
+            sql.append(" AND (vacancy_name ILIKE :likeQuery ESCAPE E'\\\\' OR organization ILIKE :likeQuery ESCAPE E'\\\\' ")
+                    .append("OR recruiter_name ILIKE :likeQuery ESCAPE E'\\\\' OR note ILIKE :likeQuery ESCAPE E'\\\\') ");
         }
         sql.append(!hasQuery || shortTokenFallback
                 ? " ORDER BY application_date DESC, created_at DESC, id ASC LIMIT :limit"
                 : " ORDER BY relevance DESC, application_date DESC, id ASC LIMIT :limit");
         return jdbc.query(sql.toString(), p, (rs, row) -> new AssistantApplicationView(
-                fromBytes(rs.getBytes("id")), rs.getString("vacancy_name"), rs.getString("organization"),
+                rs.getObject("id", UUID.class), rs.getString("vacancy_name"), rs.getString("organization"),
                 rs.getString("recruiter_name"), rs.getString("status"),
                 rs.getObject("application_date", LocalDate.class), rs.getString("platform"),
                 rs.getInt("interview_count"), rs.getTimestamp("next_step_date_time") == null ? null :
@@ -68,8 +68,8 @@ public class AssistantApplicationQueryRepository {
         appendFilters(sql, organization, status, platform, from, to);
         if (query != null && !query.isBlank()) {
             if (shortTokenFallback) {
-                sql.append(" AND (vacancy_name LIKE :likeQuery ESCAPE '\\\\' OR organization LIKE :likeQuery ESCAPE '\\\\' ")
-                        .append("OR recruiter_name LIKE :likeQuery ESCAPE '\\\\' OR note LIKE :likeQuery ESCAPE '\\\\') ");
+                sql.append(" AND (vacancy_name ILIKE :likeQuery ESCAPE E'\\\\' OR organization ILIKE :likeQuery ESCAPE E'\\\\' ")
+                        .append("OR recruiter_name ILIKE :likeQuery ESCAPE E'\\\\' OR note ILIKE :likeQuery ESCAPE E'\\\\') ");
             } else {
                 sql.append(" AND ").append(MATCH);
             }
@@ -88,7 +88,7 @@ public class AssistantApplicationQueryRepository {
         sql.append(oldestFirst ? " ORDER BY application_date ASC, created_at ASC, id ASC" :
                 " ORDER BY application_date DESC, created_at DESC, id ASC").append(" LIMIT :limit");
         return jdbc.query(sql.toString(), p, (rs, row) -> new AssistantApplicationView(
-                fromBytes(rs.getBytes("id")), rs.getString("vacancy_name"), rs.getString("organization"),
+                rs.getObject("id", UUID.class), rs.getString("vacancy_name"), rs.getString("organization"),
                 rs.getString("recruiter_name"), rs.getString("status"),
                 rs.getObject("application_date", LocalDate.class), rs.getString("platform"),
                 rs.getInt("interview_count"), rs.getTimestamp("next_step_date_time") == null ? null :
@@ -99,7 +99,7 @@ public class AssistantApplicationQueryRepository {
     private MapSqlParameterSource baseParameters(UUID userId, String organization, String status,
                                                   String platform, LocalDate from, LocalDate to, boolean archived) {
         return new MapSqlParameterSource()
-                .addValue("userId", toBytes(userId)).addValue("archived", archived)
+                .addValue("userId", userId).addValue("archived", archived)
                 .addValue("organization", organization).addValue("status", status)
                 .addValue("platform", platform).addValue("from", from).addValue("to", to);
     }
@@ -116,15 +116,6 @@ public class AssistantApplicationQueryRepository {
 
     private String escapeLike(String value) {
         return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-    }
-
-    private byte[] toBytes(UUID id) {
-        return ByteBuffer.allocate(16).putLong(id.getMostSignificantBits()).putLong(id.getLeastSignificantBits()).array();
-    }
-
-    private UUID fromBytes(byte[] bytes) {
-        ByteBuffer b = ByteBuffer.wrap(bytes);
-        return new UUID(b.getLong(), b.getLong());
     }
 
     public record ApplicationStats(long applications, long interviews) {}

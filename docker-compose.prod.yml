@@ -3,7 +3,7 @@ services:
     image: ghcr.io/vitorhugo-dotnet/jobapplytracker-backend:latest
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_URL: "jdbc:mariadb://mariadb:3306/${DB_NAME}?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useUnicode=true"
+      DB_URL: "jdbc:postgresql://postgres:5432/${DB_NAME}"
     deploy:
       resources:
         limits:

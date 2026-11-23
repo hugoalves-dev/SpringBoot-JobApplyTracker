@@ -1,0 +1,1 @@
+-- PostgreSQL authorization payloads are TEXT from V20 onward.

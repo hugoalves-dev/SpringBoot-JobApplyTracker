@@ -1,0 +1,1 @@
+-- PostgreSQL stores authorization payloads as TEXT; no LOB alteration is needed.

@@ -60,10 +60,10 @@ spring:
   application:
     name: job-tracker
   datasource:
-    url: ${DB_URL:jdbc:mariadb://localhost:3306/jobtracker?createDatabaseIfNotExist=true&characterEncoding=UTF-8&useUnicode=true}
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/jobtracker}
     username: ${DB_USERNAME:jobtracker}
     password: ${DB_PASSWORD:jobtracker}
-    driver-class-name: org.mariadb.jdbc.Driver
+    driver-class-name: org.postgresql.Driver
   jpa:
     open-in-view: false
     hibernate:
@@ -71,13 +71,13 @@ spring:
     show-sql: false
     properties:
       hibernate:
-        dialect: org.hibernate.dialect.MariaDBDialect
-        type.preferred_uuid_jdbc_type: BINARY
+        type.preferred_uuid_jdbc_type: UUID
         format_sql: false
   flyway:
     enabled: true
-    locations: classpath:db/migration
     baseline-on-migrate: true
+    locations: classpath:db/migration/postgresql
+    baseline-version: 35
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}

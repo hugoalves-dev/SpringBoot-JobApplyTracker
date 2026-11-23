@@ -14,7 +14,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -38,7 +38,8 @@ SEED_STATUSES = (
 )
 # Flyway-seeded rows that are replaced by the source data during import.
 SEED_QUOTA_LOCKS = (("assistant-global",),)
-TARGET_FLYWAY_VERSION = "38"
+SEED_ROLE_NAMES = {"USER", "BETA", "ADMIN"}
+TARGET_FLYWAY_VERSION = "37"
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 
@@ -74,6 +75,13 @@ def convert(value: object, pg_type: str) -> object:
         if value not in (0, 1, False, True):
             raise ValueError(f"Invalid boolean value {value!r}")
         return bool(value)
+    if pg_type == "time" and isinstance(value, timedelta):
+        # PyMySQL returns MariaDB TIME as timedelta; PostgreSQL TIME holds only a time of day.
+        micros = value // timedelta(microseconds=1)
+        if not 0 <= micros < 24 * 3600 * 1_000_000:
+            raise ValueError(f"TIME value {value} is outside 00:00-24:00")
+        seconds, micro = divmod(micros, 1_000_000)
+        return time(seconds // 3600, seconds % 3600 // 60, seconds % 60, micro)
     if pg_type in {"text", "varchar", "bpchar"} and isinstance(value, (bytes, bytearray)):
         # Never silently corrupt OAuth payloads (MariaDB BLOB -> PostgreSQL TEXT).
         return bytes(value).decode("utf-8", errors="strict")
@@ -197,7 +205,7 @@ def ensure_schema(source_tables: set[str], source_cols: dict[str, set[str]],
 
 
 def inspect_target(conn: object, tables: set[str], sql: object) -> None:
-    """Allow only the Flyway seeds: 9 statuses (V29) and the assistant quota lock row (V37)."""
+    """Allow only seeded rows: statuses (V29), roles (V13), quota lock (V37) and bootstrapped OAuth clients."""
     history = query_rows(
         conn,
         "SELECT version, success FROM public.flyway_schema_history "
@@ -217,6 +225,13 @@ def inspect_target(conn: object, tables: set[str], sql: object) -> None:
             actual = query_rows(conn, "SELECT id, name, display_order FROM public.application_statuses ORDER BY id")
             if tuple(actual) != SEED_STATUSES:
                 raise ValueError("Target application_statuses has been modified; refusing overwrite")
+        elif table == "roles":
+            names = {row[0] for row in query_rows(conn, "SELECT name FROM public.roles")}
+            if not names <= SEED_ROLE_NAMES:
+                raise ValueError("Target roles differs from Flyway V13 seed; refusing overwrite")
+        elif table == "oauth2_registered_client":
+            # The GPT/MCP clients are re-bootstrapped on every app start; the source rows replace them.
+            pass
         elif table == "assistant_quota_locks":
             actual = query_rows(conn, "SELECT lock_name FROM public.assistant_quota_locks ORDER BY lock_name")
             if tuple(actual) != SEED_QUOTA_LOCKS:
@@ -238,7 +253,8 @@ def fix_sequences(conn: object, tables: list[str], sql: object) -> None:
         conn,
         "SELECT table_name, column_name FROM information_schema.columns "
         "WHERE table_schema = 'public' AND "
-        "(is_identity = 'YES' OR column_default LIKE 'nextval(%')",
+        "(is_identity = 'YES' OR column_default LIKE %s)",
+        ("nextval(%",),
     )
     with conn.cursor() as cursor:
         for table, column in rows:
@@ -288,6 +304,8 @@ def migrate(source: object, target: object, source_db: str, execute: bool, batch
         with target.cursor() as cursor:
             cursor.execute("DELETE FROM public.application_statuses")
             cursor.execute("DELETE FROM public.assistant_quota_locks")
+            cursor.execute("DELETE FROM public.oauth2_registered_client")
+            cursor.execute("DELETE FROM public.roles")
         total_rows = 0
         for table in order:
             cols = target_cols[table]

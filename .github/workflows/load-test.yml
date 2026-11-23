@@ -29,7 +29,7 @@ jobs:
             -e POSTGRES_DB=jobtracker \
             -e POSTGRES_USER=jobtracker \
             -e POSTGRES_PASSWORD=jobtracker \
-            postgres:17
+            pgvector/pgvector:pg17
 
       - name: Wait for PostgreSQL
         run: |

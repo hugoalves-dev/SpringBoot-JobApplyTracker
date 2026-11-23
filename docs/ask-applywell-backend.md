@@ -15,6 +15,10 @@ enforced before the provider is called. Rejections return HTTP 429 before the st
 `GET /api/v1/assistant/usage` returns the caller's daily usage. See
 [assistant-quota.md](assistant-quota.md).
 
+Search can combine full-text and pgvector similarity, and `matchApplicationsToProfile` ranks
+applications against the user's profile documents. Both are opt-in; see
+[semantic-search.md](semantic-search.md).
+
 Enable with `APP_ASSISTANT_ENABLED=true`, set `OPENAI_API_KEY`, and optionally set
 `OPENAI_CHAT_MODEL`. The feature is disabled by default. Every tool is read-only and binds
 the user ID captured from the authenticated request; the model never receives a user ID.

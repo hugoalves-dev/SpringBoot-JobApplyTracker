@@ -99,16 +99,7 @@ public class BaseInformationService {
         GoogleDriveBaseInformation info = baseInformationRepository.findByIdAndConnectionUserId(baseInformationId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Base information not found with id: " + baseInformationId));
 
-        String content = switch (info.getDocType()) {
-            case GOOGLE_DOC -> credentialService.call(userId,
-                    token -> googleDriveApiClient.readGoogleDocText(token, info.getGoogleFileId()));
-            case PDF -> documentTextExtractor.extractPdf(credentialService.call(userId,
-                    token -> googleDriveApiClient.downloadFileBytes(token, info.getGoogleFileId())));
-            case DOCX -> documentTextExtractor.extractDocx(credentialService.call(userId,
-                    token -> googleDriveApiClient.downloadFileBytes(token, info.getGoogleFileId())));
-            case MARKDOWN -> documentTextExtractor.extractMarkdown(credentialService.call(userId,
-                    token -> googleDriveApiClient.downloadFileBytes(token, info.getGoogleFileId())));
-        };
+        String content = readContent(userId, info.getDocType(), info.getGoogleFileId());
 
         return new BaseInformationContentResponse(
                 info.getId(),
@@ -116,6 +107,23 @@ public class BaseInformationService {
                 info.getDocType().name(),
                 content
         );
+    }
+
+    /**
+     * Reads a base information document's plain text for an explicit user, without relying on the
+     * request's security context (used by background embedding sync).
+     */
+    public String readContent(UUID userId, BaseInformationDocType docType, String googleFileId) {
+        return switch (docType) {
+            case GOOGLE_DOC -> credentialService.call(userId,
+                    token -> googleDriveApiClient.readGoogleDocText(token, googleFileId));
+            case PDF -> documentTextExtractor.extractPdf(credentialService.call(userId,
+                    token -> googleDriveApiClient.downloadFileBytes(token, googleFileId)));
+            case DOCX -> documentTextExtractor.extractDocx(credentialService.call(userId,
+                    token -> googleDriveApiClient.downloadFileBytes(token, googleFileId)));
+            case MARKDOWN -> documentTextExtractor.extractMarkdown(credentialService.call(userId,
+                    token -> googleDriveApiClient.downloadFileBytes(token, googleFileId)));
+        };
     }
 
     private BaseInformationResponse toResponse(GoogleDriveBaseInformation info) {

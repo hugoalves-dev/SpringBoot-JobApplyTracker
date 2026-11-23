@@ -24,7 +24,11 @@ class AssistantToolsTest {
         UUID userId = UUID.randomUUID();
         AssistantApplicationQueryRepository repository = mock(AssistantApplicationQueryRepository.class);
         AssistantApplicationQueryService queryService = new AssistantApplicationQueryService(
-                repository, mock(ApplicationRepository.class), new AssistantProperties());
+                repository, mock(ApplicationRepository.class), new AssistantProperties(),
+                mock(com.jobtracker.service.semantic.SemanticSearchService.class),
+                new com.jobtracker.config.SemanticSearchProperties(),
+                mock(com.jobtracker.repository.semantic.SemanticEmbeddingRepository.class),
+                new io.micrometer.core.instrument.simple.SimpleMeterRegistry());
         AssistantTools tools = new AssistantTools(userId, queryService, mock(DashboardService.class));
 
         AssistantTools.SearchInput input = new AssistantTools.SearchInput(

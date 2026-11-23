@@ -2,10 +2,12 @@ package com.jobtracker.support;
 
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /** Shared PostgreSQL instance so cached Spring contexts keep a live datasource between test classes. */
 public final class PostgresTestDatabase {
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:17-alpine");
+    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>(
+            DockerImageName.parse("pgvector/pgvector:pg17").asCompatibleSubstituteFor("postgres"));
 
     static {
         POSTGRES.start();

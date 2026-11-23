@@ -136,6 +136,9 @@ jobs:
     timeout-minutes: 20
 
     steps:
+      # Only the app service is managed here. PostgreSQL holds production data and is
+      # upgraded by hand (pgvector image, backups); --no-deps keeps compose from pulling,
+      # recreating or starting it, and no --remove-orphans so it can't remove other containers.
       - name: Deploy latest image over SSH
         run: |
           mkdir -p ~/.ssh
@@ -154,6 +157,6 @@ jobs:
                 -o ConnectTimeout=30 \
                 -o StrictHostKeyChecking=no \
                 "${{ secrets.VPS_USER }}@${{ secrets.VPS_IP }}" \
-                "set -eu && cd /docker/jobpplytracker-api && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f" && break
+                "set -eu && cd /docker/jobpplytracker-api && docker compose pull app && docker compose up -d --no-deps app && docker image prune -f" && break
             [ $i -lt 3 ] && sleep 15
           done

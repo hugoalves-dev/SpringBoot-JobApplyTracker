@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """One-time ApplyWell MariaDB -> PostgreSQL data cutover.
 
-The PostgreSQL schema must already have been created by Flyway V1-V36.
+The PostgreSQL schema must already have been created by Flyway V1-V37.
 The MariaDB source should be restored from a verified backup and kept immutable.
 """
 
@@ -33,6 +33,9 @@ SEED_STATUSES = (
     (8, "Rejected", 8),
     (9, "Approved", 9),
 )
+# Flyway-seeded rows that are replaced by the source data during import.
+SEED_QUOTA_LOCKS = (("assistant-global",),)
+TARGET_FLYWAY_VERSION = "37"
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 
@@ -189,14 +192,15 @@ def ensure_schema(source_tables: set[str], source_cols: dict[str, set[str]],
 
 
 def inspect_target(conn: object, tables: set[str], sql: object) -> None:
-    """Allow only the 9 status rows inserted by Flyway V29."""
+    """Allow only the Flyway seeds: 9 statuses (V29) and the assistant quota lock row (V37)."""
     history = query_rows(
         conn,
         "SELECT version, success FROM public.flyway_schema_history "
         "ORDER BY installed_rank DESC LIMIT 1",
     )
-    if not history or history[0] != ("36", True):
-        raise ValueError("Target must be a fresh database already migrated by Flyway through V36")
+    if not history or history[0] != (TARGET_FLYWAY_VERSION, True):
+        raise ValueError(
+            f"Target must be a fresh database already migrated by Flyway through V{TARGET_FLYWAY_VERSION}")
     for table in sorted(tables):
         count_query = sql.SQL("SELECT COUNT(*) FROM public.{}").format(sql.Identifier(table))
         with conn.cursor() as cursor:
@@ -208,6 +212,10 @@ def inspect_target(conn: object, tables: set[str], sql: object) -> None:
             actual = query_rows(conn, "SELECT id, name, display_order FROM public.application_statuses ORDER BY id")
             if tuple(actual) != SEED_STATUSES:
                 raise ValueError("Target application_statuses has been modified; refusing overwrite")
+        elif table == "assistant_quota_locks":
+            actual = query_rows(conn, "SELECT lock_name FROM public.assistant_quota_locks ORDER BY lock_name")
+            if tuple(actual) != SEED_QUOTA_LOCKS:
+                raise ValueError("Target assistant_quota_locks differs from Flyway V37 seed; refusing overwrite")
         elif count:
             raise ValueError(f"Target {table} already contains {count} records; refusing to overwrite")
 
@@ -257,16 +265,17 @@ def migrate(source: object, target: object, source_db: str, execute: bool, batch
             "WHERE fk.contype = 'f' AND ns.nspname = 'public'",
         )
         order = dependency_order(target_tables, foreign_keys)
-        print(f"Source tables: {len(order)} | destination: Flyway V36 | mode: {'EXECUTE' if execute else 'CHECK ONLY'}")
+        print(f"Source tables: {len(order)} | destination: Flyway V{TARGET_FLYWAY_VERSION} | mode: {'EXECUTE' if execute else 'CHECK ONLY'}")
         if not execute:
             for table in order:
                 print(f"  {table}")
             print("No data changed. Re-run with --execute after backup validation.")
             return
 
-        # Statuses are the sole Flyway-seeded dataset and must be replaced atomically.
+        # Flyway-seeded datasets are replaced atomically by the source rows.
         with target.cursor() as cursor:
             cursor.execute("DELETE FROM public.application_statuses")
+            cursor.execute("DELETE FROM public.assistant_quota_locks")
         total_rows = 0
         for table in order:
             cols = target_cols[table]

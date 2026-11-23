@@ -39,7 +39,7 @@ SEED_STATUSES = (
 # Flyway-seeded rows that are replaced by the source data during import.
 SEED_QUOTA_LOCKS = (("assistant-global",),)
 SEED_ROLE_NAMES = {"USER", "BETA", "ADMIN"}
-TARGET_FLYWAY_VERSION = "37"
+TARGET_FLYWAY_VERSION = "38"
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 

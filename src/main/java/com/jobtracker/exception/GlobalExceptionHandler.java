@@ -37,7 +37,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequest(BadRequestException ex) {
         log.warn("event=BAD_REQUEST message={}", ex.getMessage());
-        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ex.getMessage(), codeOf(ex));
     }
 
     @ExceptionHandler(UnauthorizedException.class)
@@ -49,7 +49,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<Map<String, Object>> handleConflict(ConflictException ex) {
         log.warn("event=CONFLICT message={}", ex.getMessage());
-        return buildResponse(HttpStatus.CONFLICT, ex.getMessage());
+        return buildResponse(HttpStatus.CONFLICT, ex.getMessage(), codeOf(ex));
     }
 
     @ExceptionHandler(ServiceUnavailableException.class)
@@ -75,6 +75,19 @@ public class GlobalExceptionHandler {
         }
         if (ex.getRetryAt() != null) body.put("retryAt", ex.getRetryAt().toString());
         return response.body(body);
+    }
+
+    @ExceptionHandler(IntegrationRateLimitException.class)
+    public ResponseEntity<Map<String, Object>> handleIntegrationRateLimit(IntegrationRateLimitException ex) {
+        ResponseEntity<Map<String, Object>> base = buildResponse(HttpStatus.TOO_MANY_REQUESTS, ex.getMessage(), ex.getCode());
+        if (ex.getRetryAfter() == null) {
+            return base;
+        }
+        long seconds = Math.max(1, ex.getRetryAfter().toSeconds());
+        base.getBody().put("retryAfterSeconds", seconds);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, String.valueOf(seconds))
+                .body(base.getBody());
     }
 
     @ExceptionHandler({BadCredentialsException.class, AuthenticationException.class})

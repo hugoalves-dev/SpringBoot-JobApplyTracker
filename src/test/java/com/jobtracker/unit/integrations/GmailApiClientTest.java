@@ -42,7 +42,7 @@ class GmailApiClientTest {
         gmail.setClientId("client-id");
         gmail.setClientSecret("client-secret");
         gmail.setRedirectUri("https://api.test/api/v1/integrations/gmail/oauth/callback");
-        gmail.setOauthCompleteUrl("https://app.test/settings/integrations/callback");
+        gmail.setOauthCompleteUrl("https://app.test/account");
         RestClient.Builder builder = RestClient.builder();
         server = MockRestServiceServer.bindTo(builder).build();
         client = new GmailApiClient(properties, builder.build());

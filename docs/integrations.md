@@ -28,7 +28,7 @@ an application's status.
 | `TINYFETCH_CACHE_TTL`, `TINYFETCH_MAX_CONTENT_CHARS` | Per-user in-memory cache lifetime (default 15m) and the content truncation limit. |
 | `GMAIL_CLIENT_ID` / `GMAIL_CLIENT_SECRET` | Default to the Google Drive OAuth client. |
 | `GMAIL_REDIRECT_URI` | Default `${APP_API_BASE_URL}/api/v1/integrations/gmail/oauth/callback`. It must be registered on the OAuth client. |
-| `GMAIL_OAUTH_COMPLETE_URL` | The frontend page the callback redirects to, e.g. `https://applywell.hugojava.dev/settings/integrations/callback`. The redirect adds `integration=gmail&status=success|error&message=...`. |
+| `GMAIL_OAUTH_COMPLETE_URL` | The frontend page the callback redirects to, e.g. `https://applywell.hugojava.dev/account`. The redirect adds `integration=gmail&status=success|error&message=...`. |
 | `GMAIL_MAX_ACCOUNTS_PER_USER`, `GMAIL_MAX_ATTACHMENT_BYTES`, `GMAIL_DRAFT_PENDING_TIMEOUT` | Limits. |
 
 ### Google Cloud / OAuth requirements

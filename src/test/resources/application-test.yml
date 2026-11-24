@@ -55,7 +55,7 @@ app:
       client-id: test-gmail-client-id
       client-secret: test-gmail-client-secret
       redirect-uri: http://localhost:8080/api/v1/integrations/gmail/oauth/callback
-      oauth-complete-url: http://localhost:5173/settings/integrations/callback
+      oauth-complete-url: http://localhost:5173/account
   gpt-oauth:
     client-id: test-openai-client-id
     client-secret: test-openai-client-secret

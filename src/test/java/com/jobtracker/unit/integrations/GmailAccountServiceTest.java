@@ -50,7 +50,7 @@ class GmailAccountServiceTest {
         properties.getGmail().setClientId("id");
         properties.getGmail().setClientSecret("secret");
         properties.getGmail().setRedirectUri("https://api.test/cb");
-        properties.getGmail().setOauthCompleteUrl("https://app.test/settings/integrations/callback");
+        properties.getGmail().setOauthCompleteUrl("https://app.test/account");
         properties.getGmail().setMaxAccountsPerUser(2);
         user.setId(UUID.randomUUID());
         when(securityUtils.getCurrentUser()).thenReturn(user);

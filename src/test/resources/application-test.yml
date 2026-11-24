@@ -49,6 +49,13 @@ app:
     client-secret: test-google-client-secret
     redirect-uri: http://localhost:8080/api/v1/google-drive/oauth/callback
     oauth-complete-url: http://localhost:5173/settings/google-drive/callback
+  integrations:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+    gmail:
+      client-id: test-gmail-client-id
+      client-secret: test-gmail-client-secret
+      redirect-uri: http://localhost:8080/api/v1/integrations/gmail/oauth/callback
+      oauth-complete-url: http://localhost:5173/settings/integrations/callback
   gpt-oauth:
     client-id: test-openai-client-id
     client-secret: test-openai-client-secret

@@ -440,6 +440,15 @@ Response:
 }
 ```
 
+## TinyFish Fetch and Gmail drafts
+
+Users can read public URLs (for example a LinkedIn job post) through their own TinyFish Fetch key
+and create Gmail drafts with the generated resume attached. Both go through Applywell's own MCP
+server (`Fetch-Url`, `List-Email-Accounts`, `Create-Email-Draft`) and REST API under
+`/api/v1/integrations/**`. Drafts are never sent automatically, and creating one never marks an
+application as applied. For setup (`APP_INTEGRATIONS_ENCRYPTION_KEY`, Gmail API and OAuth
+consent requirements) and tool contracts, see [docs/integrations.md](docs/integrations.md).
+
 ## MCP Server (Model Context Protocol)
 
 The backend exposes all core domain services as MCP tools via a **Streamable HTTP** endpoint at `POST /mcp/messages`. Any MCP-compatible AI client (Claude Desktop, Claude.ai, `mcp-cli`, etc.) can call these tools on behalf of an authenticated user.
